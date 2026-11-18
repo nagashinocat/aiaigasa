@@ -2,10 +2,22 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STORIES, getStory, lineAt, isClimax } from '../src/story.js';
 
-test('five stories with unique ids, no teacher story', () => {
-  assert.equal(STORIES.length, 5);
-  assert.equal(new Set(STORIES.map((s) => s.id)).size, 5);
-  assert.deepEqual(STORIES.map((s) => s.id), ['hajimete', 'tenkin', 'ryugaku', 'mukuchi', 'tenkou']);
+test('six stories with unique ids, no teacher story', () => {
+  assert.equal(new Set(STORIES.map((s) => s.id)).size, 6);
+  assert.deepEqual(STORIES.map((s) => s.id), ['hajimete', 'tenkin', 'ryugaku', 'mukuchi', 'tenkou', 'seijin']);
+});
+
+test('tenkou: the boy is the one moving away', () => {
+  const s = getStory('tenkou');
+  assert.equal(s.ask.who, 'he');
+  assert.match(s.ask.text, /転校/);
+  assert.equal(s.kids, true);
+});
+
+test('seijin: grown-up reunion recalls the childhood promise', () => {
+  const s = getStory('seijin');
+  assert.equal(s.kids, false);
+  assert.match(s.ask.text, /お嫁さん/);
 });
 
 for (const s of STORIES) {
@@ -37,3 +49,11 @@ test('lineAt returns last line at or before doki', () => {
 test('getStory falls back to the first story', () => {
   assert.equal(getStory('nope').id, 'hajimete');
 });
+
+import { CONFIG } from '../src/logic.js';
+for (const s of STORIES) {
+  test(`${s.id}: pressing at the climax still raises rain by >= 0.12/s`, () => {
+    const climaxDrift = s.tune.climaxDrift ?? CONFIG.climaxDrift;
+    assert.ok(CONFIG.pressRate - climaxDrift >= 0.12, `${s.id} net ${CONFIG.pressRate - climaxDrift}`);
+  });
+}

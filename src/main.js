@@ -5,8 +5,18 @@ import { createUI } from './ui.js';
 import { createBackground } from './background.js';
 import { createRain } from './rain.js';
 import { createOpening } from './opening.js';
+import { createAudio } from './audio.js';
 
 const stage = document.getElementById('stage');
+let store = null;
+try { store = window.localStorage; } catch { store = null; }
+const audio = createAudio({ storage: store });
+const soundBtn = document.getElementById('sound');
+const showSound = () => { soundBtn.classList.toggle('off', audio.muted); soundBtn.setAttribute('aria-label', audio.muted ? '音を出す' : '音を消す'); };
+showSound();
+window.addEventListener('pointerdown', () => audio.unlock(), true);
+for (const t of ['pointerdown', 'pointerup']) soundBtn.addEventListener(t, (e) => e.stopPropagation());
+soundBtn.addEventListener('click', () => { audio.unlock(); audio.setMuted(!audio.muted); showSound(); });
 const ui = createUI(document);
 const input = createInput(stage, window);
 
@@ -39,10 +49,10 @@ let mode = 'title';          // title | select | play | ending | end
 let story = getStory(params.get('story'));
 let state = createState();
 let last = performance.now();
-const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; }, get story() { return story.id; }, rainFrames: 0 });
+const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; }, get story() { return story.id; }, get audio() { return audio.muted ? 'muted' : audio.state; }, rainFrames: 0 });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
-let endT = 0, endRain = 0.5;
+let endT = 0, endRain = 0.5, answered = false;
 function chooseStory() {
   mode = 'select';
   Object.assign(view, { sunset: 0, rainbow: 0, rain: 0.5 });
@@ -58,7 +68,7 @@ function startGame() {
 }
 
 function finish() {
-  endT = 0; endRain = state.rain;
+  endT = 0; endRain = state.rain; answered = false;
   if (state.outcome === 'clear') {
     mode = 'ending';
     ui.say(story.ask.text, story.ask.who, true);
@@ -78,7 +88,7 @@ function ending(dt) {
   view.rain = endRain * (1 - ease(endT / 3));
   view.sunset = ease((endT - 3) / 3);
   view.rainbow = ease((endT - 6) / 3);
-  if (endT >= 7) ui.say(story.answer.text, story.answer.who);
+  if (endT >= 7 && !answered) { answered = true; ui.say(story.answer.text, story.answer.who); audio.chime(); }
   if (endT >= 11 && mode === 'ending') {
     mode = 'end';
     ui.showEnd(`「${story.ask.text.replace(/\n/g, '')}」\n「${story.answer.text}」`, story.endTitle);
@@ -102,6 +112,7 @@ function frame(now) {
   if (mode === 'ending') ending(Math.min(dt, 0.1));
   view.t += Math.min(dt, 0.1);
   if (mode === 'play') view.rain = state.rain;
+  audio.setRain(mode === 'title' ? 0.55 : view.rain);
   // オープニングが全面を覆っている間は、下の雨を描かない(重さ対策)
   if (!opening.covering || debugView) {
     const v = debugView ? { ...view, ...debugView } : view;

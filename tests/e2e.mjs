@@ -178,7 +178,7 @@ try {
     await page.close();
   }
   if (wants('stories')) {
-    const ids = ['hajimete', 'tenkin', 'ryugaku', 'mukuchi', 'tenkou'];
+    const ids = ['hajimete', 'tenkin', 'ryugaku', 'mukuchi', 'tenkou', 'seijin'];
     for (const id of ids) {
       const page = await open('?rain=2d');
       await startGame(page, id);
@@ -191,7 +191,7 @@ try {
           if (w !== d) { st.dispatchEvent(new Event(w ? 'pointerdown' : 'pointerup')); d = w; }
           if (s.outcome !== 'playing') { clearInterval(id); st.dispatchEvent(new Event('pointerup')); } }, 50); });
       await page.waitForFunction(() => window.__game.mode() === 'end', null, { timeout: 25000 });
-      assert.equal(await outcome(page), 'clear');
+      assert.equal(await outcome(page), 'clear', `${id} should clear`);
       const title = await page.textContent('#endTitle');
       assert.ok(title.length > 0, `${id} end title`);
       await shot(page, `51-story-${id}-end`);
@@ -200,6 +200,21 @@ try {
       assert.equal(await page.evaluate(() => window.__game.mode()), 'select');
       await page.close();
     }
+  }
+  if (wants('audio')) {
+    const page = await open('?rain=2d');
+    assert.equal(await page.evaluate(() => window.__game.audio), 'none');
+    await page.mouse.click(195, 420);
+    await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => window.__game.audio), 'running');
+    await page.click('#sound');
+    assert.equal(await page.evaluate(() => window.__game.audio), 'muted');
+    assert.equal(await page.evaluate(() => window.__game.mode()), 'title');
+    await page.reload();
+    assert.equal(await page.evaluate(() => window.__game.audio), 'muted');
+    await page.click('#sound');
+    assert.equal(await page.evaluate(() => window.__game.audio), 'running');
+    await page.close();
   }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
