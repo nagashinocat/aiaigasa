@@ -61,3 +61,11 @@ test('wrapText never starts a row with 、。」!? (kinsoku)', () => {
     assert.ok(!/^[、。」』）!?！？…ー]/.test(r), r);
   }
 });
+
+import { teaserLines } from '../src/shareCard.js';
+test('teaserLines shows only the first two exchanges (4 bubbles), never the climax', () => {
+  const lines = Array.from({ length: 15 }, (_, i) => ({ who: i % 2 ? 'he' : 'she', text: `l${i}`, climax: i >= 13 }));
+  assert.deepEqual(teaserLines({ lines }).map((l) => l.text), ['l0', 'l1', 'l2', 'l3']);
+  const six = lines.slice(0, 6).map((l, i) => ({ ...l, climax: i >= 4 }));
+  assert.ok(teaserLines({ lines: six }).every((l) => !l.climax));
+});

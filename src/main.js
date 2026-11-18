@@ -53,7 +53,7 @@ window.__debugCard = (id) => {
     ? normalizeCustom({ title: 'いちばん長い物語', lines: Array.from({ length: 15 }, (_, i) => ({ who: i % 2 ? 'he' : 'she', text: 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ' })), ask: 'あ'.repeat(40), answer: 'Hello, see you tomorrow! また明日☔' }).story
     : getStory(id);
   const cv = renderShareCard(document.createElement('canvas'), st, { url: 'https://nagashinocat.github.io/aiaigasa/' });
-  return { w: cv.width, h: cv.height, png: cv.toDataURL('image/png') };
+  return { w: cv.width, h: cv.height, hasAsk: !!cv.dataset.hasAsk, png: cv.toDataURL('image/png') };
 };
 
 function resize() {

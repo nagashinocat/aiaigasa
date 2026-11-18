@@ -64,81 +64,73 @@ function roundRect(c, x, y, w, h, r) {
 
 const COUPLE = 'M10 48 Q60 -6 110 48 Q100 42 92 48 Q84 42 76 48 Q68 42 60 48 Q52 42 44 48 Q36 42 28 48 Q20 42 10 48Z M59 46 h2 v40 h-2Z M36 66 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0Z M33 128 L35 90 Q36 77 44 77 Q52 77 53 90 L55 128Z M67 62 a9 9 0 1 0 18 0 a9 9 0 1 0 -18 0Z M64 128 L66 88 Q67 74 76 74 Q85 74 86 88 L88 128Z';
 
+// 共有画像に出すのは最初のやり取り2回ぶん(吹き出し4つ)まで。山場と結末は見せない
+export function teaserLines(story) {
+  return story.lines.filter((l) => !l.climax).slice(0, 4);
+}
+
 export function renderShareCard(canvas, story, { url }) {
-  const W = CARD.w;
-  const probe = canvas.getContext('2d');
-  const measureFor = (size) => { probe.font = `${size}px ${FONT}`; return (s) => probe.measureText(s).width; };
-  const lay = layoutChat(story.lines.map((l) => ({ who: l.who, text: String(l.text).replace(/\n/g, '') })),
-    { width: W, top: CARD.chatTop, bottom: CARD.chatBottom, measureFor });
-  // 下の段(虹・問いかけと答え・二人・URL)の高さを先に測る
-  const qaRows = (txt, size) => { probe.font = `bold ${size}px ${FONT}`; return wrapText(`「${String(txt).replace(/\n/g, '')}」`, W - 160, (x) => probe.measureText(x).width); };
-  const askRows = qaRows(story.ask.text, 44), ansRows = qaRows(story.answer.text, 48);
-  const k = story.kids ? 1.5 : 2;
-  const qaH = askRows.length * 44 * 1.35 + 24 + ansRows.length * 48 * 1.35;
-  const finaleH = 120 + qaH + 40 + 130 * k + 150;
-  const H = Math.max(CARD.h, Math.ceil(lay.bottom + 60 + finaleH));
-  const finaleY = H - finaleH;
+  const W = CARD.w, H = CARD.h;
   canvas.width = W; canvas.height = H;
   const c = canvas.getContext('2d');
+  const measureFor = (size) => { c.font = `${size}px ${FONT}`; return (s) => c.measureText(s).width; };
+  const lay = layoutChat(teaserLines(story).map((l) => ({ who: l.who, text: String(l.text).replace(/\n/g, '') })),
+    { width: W, top: 420, bottom: 1240, measureFor });
 
-  // 空:雨の灰色 → 下のほうで夕焼けへ
+  // 雨の空(結末を匂わせる夕焼けや虹は出さない)
   const g = c.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#3e4656'); g.addColorStop(Math.min(0.95, finaleY / H), '#6b7486');
-  g.addColorStop(Math.min(0.98, (finaleY + 220) / H), '#e79a84'); g.addColorStop(1, '#f3c79a');
+  g.addColorStop(0, '#3a4252'); g.addColorStop(0.6, '#5d6678'); g.addColorStop(1, '#2a303b');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
-
-  // 雨筋(会話のところだけ降らせる)
-  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  // 街の灯のぼけ
+  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 18; i++) {
+    const x = rnd() * W, y = 1350 + rnd() * 260, r = 18 + rnd() * 40;
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `rgba(255,${200 + rnd() * 40 | 0},150,${0.25 + rnd() * 0.25})`); rg.addColorStop(1, 'rgba(255,210,150,0)');
+    c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  }
+  // 雨筋
   c.lineCap = 'round';
-  for (let i = 0; i < 260; i++) {
-    const x = rnd() * (W + 200) - 100, y = rnd() * (finaleY - 40), L = 20 + rnd() * 50;
-    c.strokeStyle = `rgba(225,235,250,${0.12 + rnd() * 0.22})`; c.lineWidth = 1 + rnd() * 2.2;
+  for (let i = 0; i < 320; i++) {
+    const x = rnd() * (W + 200) - 100, y = rnd() * H, L = 20 + rnd() * 60;
+    c.strokeStyle = `rgba(225,235,250,${0.1 + rnd() * 0.22})`; c.lineWidth = 1 + rnd() * 2.4;
     c.beginPath(); c.moveTo(x, y); c.lineTo(x - L * 0.12, y - L); c.stroke();
   }
 
   // タイトル
   c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillStyle = '#f4f1ea';
-  c.font = `bold 58px ${FONT}`;
   c.shadowColor = 'rgba(0,0,0,.35)'; c.shadowBlur = 16;
-  c.fillText(TITLE, W / 2, 130);
+  c.font = `bold 58px ${FONT}`; c.fillText(TITLE, W / 2, 170);
   c.shadowBlur = 0;
-  c.font = `36px ${FONT}`; c.globalAlpha = 0.85;
-  c.fillText(`― ${story.title} ―`, W / 2, 205);
-  c.globalAlpha = 1;
+  c.font = `38px ${FONT}`; c.globalAlpha = 0.85; c.fillText(`― ${story.title} ―`, W / 2, 250); c.globalAlpha = 1;
 
   // 吹き出し
   for (const b of lay.bubbles) {
-    c.fillStyle = 'rgba(0,0,0,.18)'; roundRect(c, b.x + 4, b.y + 6, b.w, b.h, 30); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.2)'; roundRect(c, b.x + 4, b.y + 6, b.w, b.h, 30); c.fill();
     c.fillStyle = b.who === 'he' ? '#d6e8ff' : '#ffffff'; roundRect(c, b.x, b.y, b.w, b.h, 30); c.fill();
     c.fillStyle = '#2b2f38'; c.font = `${lay.fontSize}px ${FONT}`; c.textAlign = 'left'; c.textBaseline = 'middle';
     b.rows.forEach((row, i) => c.fillText(row, b.x + b.padX, b.y + b.padY + b.lineH * (i + 0.5)));
   }
+  // 続きがありそうな「…」の吹き出し
+  const dy = lay.bottom + 40;
+  c.fillStyle = 'rgba(255,255,255,.55)'; roundRect(c, 56, dy, 150, 76, 30); c.fill();
+  c.fillStyle = '#2b2f38';
+  for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(98 + i * 33, dy + 38, 8, 0, 7); c.fill(); }
 
-  // 虹と、問いかけ・答え
-  const R = 520, cx = W / 2, cy = finaleY + 30 + R;
-  ['#ff6b6b', '#ffa94d', '#ffe066', '#8ce99a', '#74c0fc', '#9775fa'].forEach((col, i) => {
-    c.strokeStyle = col; c.globalAlpha = 0.55; c.lineWidth = 16;
-    c.beginPath(); c.arc(cx, cy, R - i * 16, Math.PI * 1.08, Math.PI * 1.92); c.stroke();
-  });
-  c.globalAlpha = 1;
+  // 誘いの一文
   c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ffffff';
-  c.shadowColor = 'rgba(80,30,30,.45)'; c.shadowBlur = 14;
-  const qa = (rows, y, size) => {
-    c.font = `bold ${size}px ${FONT}`;
-    rows.forEach((r, i) => c.fillText(r, cx, y + size * 0.6 + i * size * 1.35));
-    return rows.length * size * 1.35;
-  };
-  let qy = finaleY + 120;
-  qy += qa(askRows, qy, 44) + 24;
-  qy += qa(ansRows, qy, 48);
+  c.shadowColor = 'rgba(0,0,0,.4)'; c.shadowBlur = 12;
+  c.font = `bold 46px ${FONT}`; c.fillText('この続きは、', W / 2, 1330);
+  c.fillText('あなたが雨を降らせて見届けて。', W / 2, 1400);
   c.shadowBlur = 0;
 
   // 相合傘の二人とURL
   if (typeof Path2D !== 'undefined') {
-    c.save(); c.translate(W / 2 - 60 * k, qy + 40); c.scale(k, k);
-    c.fillStyle = 'rgba(40,24,34,.85)'; c.fill(new Path2D(COUPLE)); c.restore();
+    const k = story.kids ? 1.5 : 2;
+    c.save(); c.translate(W / 2 - 60 * k, H - 150 - 130 * k - 10); c.scale(k, k);
+    c.fillStyle = 'rgba(14,17,23,.92)'; c.fill(new Path2D(COUPLE)); c.restore();
   }
-  c.fillStyle = 'rgba(40,24,34,.35)'; c.fillRect(0, H - 150, W, 150);
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, H - 150, W, 150);
   c.fillStyle = '#ffffff'; c.font = `bold 38px ${FONT}`; c.textAlign = 'center';
   c.fillText(url.replace(/^https?:\/\//, '').replace(/\/$/, ''), W / 2, H - 92);
   c.font = `28px ${FONT}`; c.globalAlpha = 0.85;
