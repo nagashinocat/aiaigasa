@@ -40,6 +40,13 @@ export function createUI(doc) {
         b.addEventListener('click', () => onPick(st.id));
         list.append(b);
       }
+      const mk = doc.createElement('button');
+      mk.dataset.id = 'make'; mk.className = 'make';
+      const mt = doc.createElement('b'); mt.textContent = '✎ 自分で作る';
+      const md = doc.createElement('span'); md.textContent = '会話を書いて、守り切って、共有しよう';
+      mk.append(mt, md);
+      mk.addEventListener('click', () => onPick('make'));
+      list.append(mk);
       title.hidden = true; hud.hidden = true; end.hidden = true; select.hidden = false;
     },
     showPlay() { select.hidden = true; meter.style.visibility = ''; doc.getElementById('doki').style.visibility = ''; title.hidden = true; hud.hidden = false; end.hidden = true; lastText = null; bubble.className = ''; },

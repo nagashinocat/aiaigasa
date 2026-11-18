@@ -33,6 +33,24 @@
     <div id="storyList"></div>
   </div>
 
+  <div id="editor" class="overlay" hidden>
+    <h2>物語をつくる</h2>
+    <div id="edErrors" role="alert"></div>
+    <label class="field">題名<input id="edTitle" maxlength="20" autocomplete="off"></label>
+    <div class="seg" role="group" aria-label="ふたり">
+      <button type="button" data-kids="0">大人のふたり</button><button type="button" data-kids="1">子どものふたり</button>
+    </div>
+    <p class="help">会話は6〜15行、1行30字まで。最後の2行が山場になります。</p>
+    <ol id="edLines"></ol>
+    <button type="button" id="edAdd" class="ghost">＋ 行を足す</button>
+    <label class="field">雨が上がる前の問いかけ<input id="edAsk" maxlength="40" autocomplete="off"></label>
+    <label class="field">虹と一緒に返る答え<input id="edAnswer" maxlength="40" autocomplete="off"></label>
+    <div class="row">
+      <button type="button" id="edBack" class="ghost">もどる</button>
+      <button type="button" id="edPlay">遊んでみる</button>
+    </div>
+  </div>
+
   <div id="end" class="overlay" hidden>
     <h2 id="endTitle"></h2>
     <p id="endText"></p>

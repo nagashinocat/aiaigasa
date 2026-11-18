@@ -216,6 +216,35 @@ try {
     assert.equal(await page.evaluate(() => window.__game.audio), 'running');
     await page.close();
   }
+  if (wants('editor')) {
+    const page = await open('?rain=2d');
+    await page.evaluate(() => window.__debugHideOpening());
+    await page.evaluate(() => window.__debugChoose());
+    await page.click('#storyList [data-id=make]');
+    await page.waitForTimeout(300);
+    assert.equal(await page.isVisible('#editor'), true);
+    await shot(page, '60-editor');
+    // 5行に減らすとエラーで始まらない
+    await page.click('#editor .line:last-child .del');
+    await page.click('#edPlay');
+    assert.match(await page.textContent('#edErrors'), /6行以上/);
+    assert.equal(await page.evaluate(() => window.__game.mode()), 'edit');
+    await page.click('#edAdd');
+    await page.fill('#editor .line:last-child input', 'なに?');
+    await page.fill('#editor .line:first-child input', '<b>x</b>');
+    await page.click('#edPlay');
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => window.__game.mode()), 'play');
+    assert.equal(await page.evaluate(() => window.__game.story), 'custom');
+    await page.waitForTimeout(500);
+    assert.equal(await page.textContent('#bubble'), '<b>x</b>');
+    // 下書きが残る
+    await page.reload();
+    await page.evaluate(() => { window.__debugHideOpening(); window.__debugChoose(); });
+    await page.click('#storyList [data-id=make]');
+    assert.equal(await page.inputValue('#editor .line:first-child input'), '<b>x</b>');
+    await page.close();
+  }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
 } finally {

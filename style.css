@@ -67,3 +67,30 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
   border-radius: 22px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,24,32,.3); color: #f4f1ea;
   font-size: 18px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 #sound.off { opacity: .55; text-decoration: line-through; }
+
+#editor { background: rgba(14,17,24,.72); justify-content: flex-start; align-items: stretch; gap: 14px; overflow-y: auto;
+  padding: calc(56px + env(safe-area-inset-top)) max(16px, calc((100% - 480px) / 2)) calc(40px + env(safe-area-inset-bottom));
+  text-align: left; user-select: text; -webkit-user-select: text; touch-action: pan-y; }
+#editor h2 { text-align: center; }
+#editor input { font: inherit; font-size: 16px; width: 100%; padding: 10px 12px; border-radius: 10px; min-height: 44px;
+  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); color: #f4f1ea; }
+#editor .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; opacity: .95; }
+#editor .help { font-size: 13px; opacity: .75; }
+#editor button { font: inherit; font-size: 15px; min-height: 44px; padding: 8px 16px; border-radius: 22px; border: 0;
+  background: #f4f1ea; color: #2b2f38; }
+#editor button.ghost { background: rgba(255,255,255,.12); color: #f4f1ea; border: 1px solid rgba(255,255,255,.4); }
+#editor .seg { display: flex; gap: 8px; }
+#editor .seg button { flex: 1; background: rgba(255,255,255,.12); color: #f4f1ea; border: 1px solid rgba(255,255,255,.4); }
+#editor .seg button[aria-pressed="true"] { background: #f4f1ea; color: #2b2f38; }
+#edLines { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#edLines .line { display: grid; grid-template-columns: 64px minmax(0,1fr) 40px; gap: 6px; align-items: center; }
+#edLines .line.he { grid-template-columns: 64px minmax(0,1fr) 40px; }
+#edLines .who { padding: 8px 0 !important; font-size: 13px !important; }
+#edLines .line.she .who { background: #ffffff !important; color: #2b2f38 !important; }
+#edLines .line.he .who { background: #cfe3ff !important; color: #1d2a3d !important; }
+#edLines .line.climax input { border-color: #ffb3c7; }
+#edLines .del { padding: 0 !important; background: transparent !important; color: #f4f1ea !important; font-size: 20px !important; }
+#edErrors:empty { display: none; }
+#edErrors { background: rgba(255,120,120,.18); border: 1px solid rgba(255,140,140,.6); border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.6; white-space: pre-line; }
+#editor .row { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+#storyList button.make { border-style: dashed; background: rgba(255,179,199,.16); }

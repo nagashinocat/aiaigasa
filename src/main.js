@@ -6,6 +6,7 @@ import { createBackground } from './background.js';
 import { createRain } from './rain.js';
 import { createOpening } from './opening.js';
 import { createAudio, attachUnlock } from './audio.js';
+import { createEditor } from './editor.js';
 
 const stage = document.getElementById('stage');
 let store = null;
@@ -47,16 +48,27 @@ resize();
 
 let mode = 'title';          // title | select | play | ending | end
 let story = getStory(params.get('story'));
+let customInput = null; // 自分で作った物語の入力(共有用)
 let state = createState();
 let last = performance.now();
 const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; }, get story() { return story.id; }, get audio() { return audio.muted ? 'muted' : audio.state; }, rainFrames: 0 });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
 let endT = 0, endRain = 0.5, answered = false;
+const editor = createEditor(document, {
+  storage: store,
+  onPlay: (st, input) => { story = st; customInput = input; editor.close(); startGame(); },
+  onBack: () => chooseStory(),
+});
+
 function chooseStory() {
   mode = 'select';
+  editor.close();
   Object.assign(view, { sunset: 0, rainbow: 0, rain: 0.5 });
-  ui.showSelect(STORIES, (id) => { story = getStory(id); startGame(); });
+  ui.showSelect(STORIES, (id) => {
+    if (id === 'make') { mode = 'edit'; document.getElementById('select').hidden = true; editor.open(); return; }
+    story = getStory(id); customInput = null; startGame();
+  });
 }
 
 function startGame() {
