@@ -4,11 +4,7 @@ import { LAMPS } from './background.js';
 const VS = `attribute vec2 p; varying vec2 v_uv;
 void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
 
-const FS = `precision mediump float;
-uniform sampler2D u_bg; uniform vec2 u_res; uniform float u_time, u_rain;
-uniform vec2 u_lamp0, u_lamp1;
-varying vec2 v_uv;
-#define S(a,b,t) smoothstep(a,b,t)
+export const GLSL_COMMON = `#define S(a,b,t) smoothstep(a,b,t)
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
 vec3 h31(float p){ vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787)); p3+=dot(p3,p3.yzx+19.19);
   return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x)); }
@@ -71,6 +67,13 @@ float streak(vec2 uv, float t, float scale, float speed, float width, float len,
   return on*S(width,0.,abs(f.x - x))*S(len,len*.3,abs(f.y - y0));
 }
 
+`;
+
+const FS = `precision mediump float;
+uniform sampler2D u_bg; uniform vec2 u_res; uniform float u_time, u_rain;
+uniform vec2 u_lamp0, u_lamp1;
+varying vec2 v_uv;
+${GLSL_COMMON}
 void main(){
   vec2 frag = v_uv*u_res;
   vec2 uv = (frag - .5*u_res)/u_res.y;
@@ -111,7 +114,7 @@ void main(){
   gl_FragColor = vec4(col,1.);
 }`;
 
-function compile(gl, type, src) {
+export function compile(gl, type, src) {
   const s = gl.createShader(type);
   gl.shaderSource(s, src); gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));

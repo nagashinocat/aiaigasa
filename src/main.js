@@ -4,6 +4,7 @@ import { createInput } from './input.js';
 import { createUI } from './ui.js';
 import { createBackground } from './background.js';
 import { createRain } from './rain.js';
+import { createOpening } from './opening.js';
 
 const stage = document.getElementById('stage');
 const ui = createUI(document);
@@ -18,10 +19,15 @@ const params = new URLSearchParams(location.search);
 const rain = createRain(document.getElementById('rain'), document.getElementById('bg'),
   { force: params.get('rain'), perfCheck: params.get('perf') !== 'off' });
 
+const opening = createOpening(document.getElementById('opening'), () => startGame(), { force: params.get('rain') });
+const hint = document.querySelector('#title .hint');
+window.__debugSkipOpening = () => opening.skip();
+
 function resize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   bg.resize(innerWidth, innerHeight, dpr);
   rain.resize(innerWidth, innerHeight, dpr);
+  opening.resize(innerWidth, innerHeight, dpr);
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
@@ -30,7 +36,7 @@ resize();
 let mode = 'title';          // title | play | end
 let state = createState();
 let last = performance.now();
-const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; } });
+const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; } });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
 let endT = 0, endRain = 0.5;
@@ -67,7 +73,7 @@ function ending(dt) {
   }
 }
 
-ui.onStart(() => { if (mode === 'title') startGame(); });
+ui.onStart(() => { if (mode === 'title') opening.tap(); });
 ui.onRetry(startGame);
 
 function frame(now) {
@@ -79,6 +85,7 @@ function frame(now) {
     ui.update(state, band(climax), lineAt(state.doki));
     if (state.outcome !== 'playing') finish();
   }
+  if (mode === 'title') hint.hidden = !opening.ready;
   if (mode === 'ending') ending(Math.min(dt, 0.1));
   view.t += Math.min(dt, 0.1);
   if (mode === 'play') view.rain = state.rain;
@@ -88,5 +95,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 ui.showTitle();
+opening.start();
 requestAnimationFrame(frame);
 void game;

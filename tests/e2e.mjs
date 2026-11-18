@@ -27,7 +27,7 @@ const outcome = (page) => page.evaluate(() => window.__game.outcome);
 const startGame = async (page) => {
   await page.evaluate(() => window.__debugSkipOpening && window.__debugSkipOpening());
   await page.mouse.click(195, 420);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(1300);
 };
 
 try {
@@ -111,6 +111,21 @@ try {
     assert.equal(await outcome(page), 'playing');
     assert.equal(await page.evaluate(() => window.__game.state.doki < 0.01), true);
     await page.close();
+  }
+  if (wants('opening')) {
+    for (const [q, kind] of [['?perf=off', 'gl'], ['?rain=2d', '2d']]) {
+      const page = await open(q);
+      assert.equal(await page.evaluate(() => window.__game.openingKind), kind);
+      await page.waitForTimeout(1000); await shot(page, `40-opening-${kind}-1s`);
+      await page.waitForTimeout(3000); await shot(page, `41-opening-${kind}-4s`);
+      await page.waitForTimeout(2500); await shot(page, `42-opening-${kind}-6s`);
+      assert.equal(await page.isVisible('#title .hint'), true);
+      await page.mouse.click(195, 420);
+      await page.waitForTimeout(1300);
+      assert.equal(await page.evaluate(() => window.__game.mode()), 'play');
+      assert.equal(await outcome(page), 'playing');
+      await page.close();
+    }
   }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');

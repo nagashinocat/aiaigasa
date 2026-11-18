@@ -36,7 +36,13 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; text-align: center; gap: 28px; padding: 24px; }
 .overlay[hidden], #hud[hidden] { display: none; }
-#title h1 { font-size: 28px; line-height: 1.5; letter-spacing: .08em; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+#title { justify-content: flex-end; padding-bottom: calc(60px + env(safe-area-inset-bottom)); gap: 18px; }
+#title h1 { font-size: 13px; font-weight: normal; letter-spacing: .2em; opacity: .8; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+#title .hint { font-size: 16px; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+#title .hint[hidden] { display: block; visibility: hidden; }
+#opening, .opening-leaf { pointer-events: none; }
+.opening-leaf[hidden] { display: none; }
+#opening[hidden] { display: none; }
 .hint { font-size: 15px; opacity: .85; animation: blink 1.8s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .35; } }
 #end { background: rgba(10,12,18,.22); }
