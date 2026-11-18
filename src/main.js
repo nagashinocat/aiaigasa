@@ -5,7 +5,7 @@ import { createUI } from './ui.js';
 import { createBackground } from './background.js';
 import { createRain } from './rain.js';
 import { createOpening } from './opening.js';
-import { createAudio } from './audio.js';
+import { createAudio, attachUnlock } from './audio.js';
 
 const stage = document.getElementById('stage');
 let store = null;
@@ -14,7 +14,7 @@ const audio = createAudio({ storage: store });
 const soundBtn = document.getElementById('sound');
 const showSound = () => { soundBtn.classList.toggle('off', audio.muted); soundBtn.setAttribute('aria-label', audio.muted ? '音を出す' : '音を消す'); };
 showSound();
-window.addEventListener('pointerdown', () => audio.unlock(), true);
+attachUnlock(window, () => audio.unlock());
 for (const t of ['pointerdown', 'pointerup']) soundBtn.addEventListener(t, (e) => e.stopPropagation());
 soundBtn.addEventListener('click', () => { audio.unlock(); audio.setMuted(!audio.muted); showSound(); });
 const ui = createUI(document);

@@ -27,3 +27,22 @@ test('rainGain rises with rain and is silent at 0', () => {
   assert.ok(rainGain(0.8) > rainGain(0.3));
   assert.ok(rainGain(1) <= 0.5);
 });
+
+import { attachUnlock, preferPlayback } from '../src/audio.js';
+
+test('attachUnlock fires on iPhone gesture events (touchend, click), not only pointerdown', () => {
+  for (const type of ['touchend', 'click', 'pointerup', 'keydown']) {
+    const target = new EventTarget();
+    let n = 0;
+    attachUnlock(target, () => { n++; });
+    target.dispatchEvent(new Event(type));
+    assert.equal(n, 1, type);
+  }
+});
+
+test('preferPlayback asks iOS to treat the sound as music (ignores the silent switch)', () => {
+  const nav = { audioSession: { type: 'auto' } };
+  preferPlayback(nav);
+  assert.equal(nav.audioSession.type, 'playback');
+  assert.doesNotThrow(() => preferPlayback({}));
+});
