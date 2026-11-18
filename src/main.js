@@ -3,6 +3,7 @@ import { lineAt, isClimax, GOODBYE, PROMISE } from './story.js';
 import { createInput } from './input.js';
 import { createUI } from './ui.js';
 import { createBackground } from './background.js';
+import { createRain } from './rain.js';
 
 const stage = document.getElementById('stage');
 const ui = createUI(document);
@@ -13,9 +14,14 @@ const view = { rain: 0.5, sunset: 0, rainbow: 0, t: 0 };
 let debugView = null;
 window.__debugBackground = (v) => { debugView = v; };
 
+const params = new URLSearchParams(location.search);
+const rain = createRain(document.getElementById('rain'), document.getElementById('bg'),
+  { force: params.get('rain'), perfCheck: params.get('perf') !== 'off' });
+
 function resize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   bg.resize(innerWidth, innerHeight, dpr);
+  rain.resize(innerWidth, innerHeight, dpr);
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
@@ -24,7 +30,7 @@ resize();
 let mode = 'title';          // title | play | end
 let state = createState();
 let last = performance.now();
-const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode });
+const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; } });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
 function startGame() {
@@ -54,7 +60,9 @@ function frame(now) {
   }
   view.t += Math.min(dt, 0.1);
   if (mode === 'play') view.rain = state.rain;
-  bg.draw(debugView ? { ...view, ...debugView } : view);
+  const v = debugView ? { ...view, ...debugView } : view;
+  bg.draw(v);
+  rain.draw(v.rain, Math.min(dt, 0.1), view.t);
   requestAnimationFrame(frame);
 }
 ui.showTitle();

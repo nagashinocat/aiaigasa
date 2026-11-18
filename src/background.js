@@ -11,7 +11,17 @@ function rng(seed) {
 export const LAMPS = [{ x: 0.14, y: 0.6 }, { x: 0.86, y: 0.58 }];
 export const GROUND = 0.78;
 
+const COUPLE = [
+  'M10 48 Q60 -6 110 48 Q100 42 92 48 Q84 42 76 48 Q68 42 60 48 Q52 42 44 48 Q36 42 28 48 Q20 42 10 48Z',
+  'M59 46 h2 v40 h-2Z',
+  'M36 66 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0Z',
+  'M33 128 L35 90 Q36 77 44 77 Q52 77 53 90 L55 128Z',
+  'M67 62 a9 9 0 1 0 18 0 a9 9 0 1 0 -18 0Z',
+  'M64 128 L66 88 Q67 74 76 74 Q85 74 86 88 L88 128Z',
+].join(' ');
+
 export function createBackground(canvas) {
+  const couplePath = typeof Path2D !== 'undefined' ? new Path2D(COUPLE) : null;
   const ctx = canvas.getContext('2d');
   let W = 1, H = 1, D = 1;
   let town = null;
@@ -41,7 +51,7 @@ export function createBackground(canvas) {
     if (!town) buildTown();
   }
 
-  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0 }) {
+  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0, couple = true }) {
     const c = ctx;
     c.setTransform(D, 0, 0, D, 0, 0);
     const dark = Math.min(1, Math.max(0, rain));
@@ -108,6 +118,16 @@ export function createBackground(canvas) {
       const ref = c.createLinearGradient(0, H * GROUND, 0, H);
       ref.addColorStop(0, `rgba(255,210,150,${0.35 * on})`); ref.addColorStop(1, 'rgba(255,210,150,0)');
       c.save(); c.filter = 'blur(6px)'; c.fillStyle = ref; c.fillRect(x - 5, H * GROUND, 10, H * (1 - GROUND)); c.restore();
+    }
+    // 相合傘の二人(画面下から23%の位置に立つ、幅150px)
+    if (couple && couplePath) {
+      const k = 150 / 120;
+      c.save();
+      c.translate(W / 2 - 75, H * 0.77 - 130 * k);
+      c.scale(k, k);
+      c.fillStyle = rgb(mixC([14, 17, 23], [40, 24, 30], sunset));
+      c.fill(couplePath);
+      c.restore();
     }
     void t;
   }

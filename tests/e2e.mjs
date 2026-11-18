@@ -32,7 +32,7 @@ const startGame = async (page) => {
 
 try {
   if (wants('basic')) {
-    const page = await open();
+    const page = await open('?rain=2d');
     await shot(page, '01-title');
     await startGame(page);
     assert.equal(await page.evaluate(() => window.__game.mode()), 'play');
@@ -69,6 +69,26 @@ try {
     await page.evaluate(() => window.__debugBackground({ rain: 0, sunset: 1, rainbow: 1 }));
     await page.waitForTimeout(200); await shot(page, '12-bg-sunset-rainbow');
     await page.close();
+  }
+  if (wants('rain')) {
+    for (const [q, kind] of [['?rain=2d', '2d'], ['?perf=off', 'gl']]) {
+      const page = await open(q);
+      await page.waitForTimeout(500);
+      assert.equal(await page.evaluate(() => window.__game.rainKind), kind);
+      await page.evaluate(() => window.__debugBackground({ rain: 0.9 }));
+      await page.waitForTimeout(1200); await shot(page, `20-rain-${kind}-heavy`);
+      await page.evaluate(() => window.__debugBackground({ rain: 0.3 }));
+      await page.waitForTimeout(1200); await shot(page, `21-rain-${kind}-light`);
+      if (kind === 'gl') {
+        await page.evaluate(() => document.getElementById('rain').getContext('webgl').getExtension('WEBGL_lose_context').loseContext());
+        await page.waitForTimeout(500);
+        assert.equal(await page.evaluate(() => window.__game.rainKind), '2d');
+        await startGame(page);
+        assert.equal(await outcome(page), 'playing');
+        await shot(page, '22-after-context-lost');
+      }
+      await page.close();
+    }
   }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
