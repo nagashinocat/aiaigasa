@@ -8,7 +8,8 @@ import { createOpening } from './opening.js';
 import { createAudio, attachUnlock } from './audio.js';
 import { createEditor } from './editor.js';
 import { renderShareCard } from './shareCard.js';
-import { normalizeCustom } from './custom.js';
+import { normalizeCustom, encodeStory, decodeStory, storyToInput } from './custom.js';
+import { readHash, storyLink, SITE_URL, prepareShare, shareStory } from './share.js';
 
 const stage = document.getElementById('stage');
 let store = null;
@@ -32,7 +33,17 @@ const params = new URLSearchParams(location.search);
 const rain = createRain(document.getElementById('rain'), document.getElementById('bg'),
   { force: params.get('rain'), perfCheck: params.get('perf') !== 'off' });
 
-const opening = createOpening(document.getElementById('opening'), () => chooseStory(), { force: params.get('rain') });
+let pending = readHash(location.hash); // 共有リンクから来たときの物語
+async function afterOpening() {
+  const ref = pending; pending = null;
+  if (ref && ref.kind === 'builtin') { story = getStory(ref.id); customInput = null; return startGame(); }
+  if (ref && ref.kind === 'custom') {
+    const st = await decodeStory(ref.code);
+    if (st) { story = st; customInput = storyToInput(st); return startGame(); }
+  }
+  chooseStory();
+}
+const opening = createOpening(document.getElementById('opening'), () => afterOpening(), { force: params.get('rain') });
 const hint = document.querySelector('#title .hint');
 window.__debugSkipOpening = () => opening.skip();
 window.__debugHideOpening = () => opening.stop();
@@ -94,6 +105,7 @@ function finish() {
     mode = 'ending';
     ui.say(story.ask.text, story.ask.who, true);
     ui.hideMeter();
+    prepareFor(story, customInput);
   } else {
     mode = 'end';
     const bye = story.goodbye[state.outcome];
@@ -112,11 +124,26 @@ function ending(dt) {
   if (endT >= 7 && !answered) { answered = true; ui.say(story.answer.text, story.answer.who); audio.chime(); }
   if (endT >= 11 && mode === 'ending') {
     mode = 'end';
-    ui.showEnd(`「${story.ask.text.replace(/\n/g, '')}」\n「${story.answer.text}」`, story.endTitle);
+    ui.showEnd(`「${story.ask.text.replace(/\n/g, '')}」\n「${story.answer.text}」`, story.endTitle, true);
   }
 }
 
 ui.onStart(() => { if (mode === 'title') opening.tap(); });
+let prepared = null;
+async function prepareFor(st, input) {
+  prepared = null;
+  try {
+    const link = st.id === 'custom' ? storyLink({ kind: 'custom', code: await encodeStory(input) }) : storyLink({ kind: 'builtin', id: st.id });
+    const canvas = renderShareCard(document.createElement('canvas'), st, { url: SITE_URL });
+    prepared = await prepareShare(canvas, link);
+  } catch (e) { console.warn('share prepare', e); }
+}
+ui.onShare(() => {
+  if (!prepared) { ui.toast('準備中です。もう一度押してください'); return; }
+  shareStory({ prepared }).then((r) => {
+    if (r === 'fallback') ui.toast('画像を保存して、リンクをコピーしました');
+  });
+});
 ui.onRetry(startGame);
 ui.onChoose(chooseStory);
 

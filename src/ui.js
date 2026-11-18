@@ -50,7 +50,9 @@ export function createUI(doc) {
       title.hidden = true; hud.hidden = true; end.hidden = true; select.hidden = false;
     },
     showPlay() { select.hidden = true; meter.style.visibility = ''; doc.getElementById('doki').style.visibility = ''; title.hidden = true; hud.hidden = false; end.hidden = true; lastText = null; bubble.className = ''; },
-    showEnd(text, heading = '') { $('endTitle').textContent = heading; $('endText').textContent = text; end.hidden = false; hud.hidden = true; },
+    showEnd(text, heading = '', canShare = false) { $('endTitle').textContent = heading; $('endText').textContent = text; $('share').hidden = !canShare; $('toast').textContent = ''; end.hidden = false; hud.hidden = true; },
+    toast(t) { $('toast').textContent = t; },
+    onShare(fn) { $('share').addEventListener('click', fn); },
     hideHud() { hud.hidden = true; },
     hideMeter() { meter.style.visibility = 'hidden'; doc.getElementById('doki').style.visibility = 'hidden'; },
     onStart(fn) { title.addEventListener('pointerup', fn); },

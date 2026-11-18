@@ -255,6 +255,65 @@ try {
     }
     await page.close();
   }
+  if (wants('share')) {
+    const page = await open('?rain=2d');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${PORT}` });
+    await page.context().route('https://x.com/**', (r) => r.fulfill({ status: 200, body: 'x' }));
+    await page.evaluate(() => { window.__debugHideOpening(); window.__debugChoose(); });
+    await page.click('#storyList [data-id=make]');
+    await page.fill('#editor .line:first-child input', 'シェアのテスト');
+    await page.click('#edPlay');
+    await page.evaluate(() => window.__debugSetDoki(0.9999));
+    await page.evaluate(() => { const st = document.getElementById('stage'); let d = false;
+      const id = setInterval(() => { const s = window.__game.state; const w = s.rain < 0.5;
+        if (w !== d) { st.dispatchEvent(new Event(w ? 'pointerdown' : 'pointerup')); d = w; }
+        if (s.outcome !== 'playing') { clearInterval(id); st.dispatchEvent(new Event('pointerup')); } }, 50); });
+    await page.waitForFunction(() => window.__game.mode() === 'end', null, { timeout: 25000 });
+    assert.equal(await page.isVisible('#share'), true);
+    const [download, popup] = await Promise.all([
+      page.waitForEvent('download'), page.context().waitForEvent('page'), page.click('#share'),
+    ]);
+    assert.equal(download.suggestedFilename(), 'aiaigasa.png');
+    await popup.waitForLoadState().catch(() => {});
+    assert.match(popup.url(), /^https:\/\/x\.com\/intent\/post\?text=/);
+    assert.match(decodeURIComponent(popup.url()), /#相合傘をやめさせない/);
+    const link = await page.evaluate(() => navigator.clipboard.readText());
+    assert.match(link, /^https:\/\/nagashinocat\.github\.io\/aiaigasa\/#s=[A-Za-z0-9_-]+$/);
+    await shot(page, '80-share-end');
+    await popup.close();
+    // そのリンクを開くと、オープニングのあとその物語が始まる
+    const hash = link.slice(link.indexOf('#'));
+    const p2 = await open('?rain=2d' + hash);
+    await p2.evaluate(() => window.__debugSkipOpening());
+    await p2.mouse.click(195, 420);
+    await p2.waitForTimeout(1400);
+    assert.equal(await p2.evaluate(() => window.__game.mode()), 'play');
+    assert.equal(await p2.evaluate(() => window.__game.story), 'custom');
+    await p2.waitForTimeout(400);
+    assert.equal(await p2.textContent('#bubble'), 'シェアのテスト');
+    await p2.close();
+    // 組み込みのリンク
+    const p3 = await open('?rain=2d#story=seijin');
+    await p3.evaluate(() => window.__debugSkipOpening());
+    await p3.mouse.click(195, 420);
+    await p3.waitForTimeout(1400);
+    assert.equal(await p3.evaluate(() => window.__game.story), 'seijin');
+    await p3.close();
+    // 壊れたリンクはふつうに物語選びへ
+    const p4 = await open('?rain=2d#s=AAAAAAAA');
+    await p4.evaluate(() => window.__debugSkipOpening());
+    await p4.mouse.click(195, 420);
+    await p4.waitForTimeout(1400);
+    assert.equal(await p4.evaluate(() => window.__game.mode()), 'select');
+    await p4.close();
+    // 失敗したときは共有ボタンを出さない
+    const p5 = await open('?rain=2d');
+    await startGame(p5);
+    await p5.waitForFunction(() => window.__game.mode() === 'end', null, { timeout: 20000 });
+    assert.equal(await p5.isVisible('#share'), false);
+    await p5.close();
+    await page.close();
+  }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
 } finally {

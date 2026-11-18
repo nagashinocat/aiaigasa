@@ -94,3 +94,6 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 #edErrors { background: rgba(255,120,120,.18); border: 1px solid rgba(255,140,140,.6); border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.6; white-space: pre-line; }
 #editor .row { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
 #storyList button.make { border-style: dashed; background: rgba(255,179,199,.16); }
+#end #share { background: linear-gradient(90deg,#ffb3c7,#ff8fab); color: #3a1f2a; font-weight: bold; padding: 14px 36px; }
+#end #share[hidden] { display: none; }
+#toast { min-height: 1.4em; font-size: 14px; opacity: .9; }
