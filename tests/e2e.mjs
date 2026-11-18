@@ -1,7 +1,7 @@
 // 画面確認:node tests/e2e.mjs [section...]
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const PORT = 8123;
@@ -243,6 +243,16 @@ try {
     await page.evaluate(() => { window.__debugHideOpening(); window.__debugChoose(); });
     await page.click('#storyList [data-id=make]');
     assert.equal(await page.inputValue('#editor .line:first-child input'), '<b>x</b>');
+    await page.close();
+  }
+  if (wants('card')) {
+    const page = await open('?rain=2d');
+    for (const id of ['tenkin', 'tenkou', 'longest']) {
+      const r = await page.evaluate((x) => window.__debugCard(x), id);
+      assert.equal(r.w, 1080);
+      assert.ok(r.h >= 1920);
+      writeFileSync(`screenshots/70-card-${id}.png`, Buffer.from(r.png.split(',')[1], 'base64'));
+    }
     await page.close();
   }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));

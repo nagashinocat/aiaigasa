@@ -7,6 +7,8 @@ import { createRain } from './rain.js';
 import { createOpening } from './opening.js';
 import { createAudio, attachUnlock } from './audio.js';
 import { createEditor } from './editor.js';
+import { renderShareCard } from './shareCard.js';
+import { normalizeCustom } from './custom.js';
 
 const stage = document.getElementById('stage');
 let store = null;
@@ -35,6 +37,13 @@ const hint = document.querySelector('#title .hint');
 window.__debugSkipOpening = () => opening.skip();
 window.__debugHideOpening = () => opening.stop();
 window.__debugChoose = () => chooseStory();
+window.__debugCard = (id) => {
+  const st = id === 'longest'
+    ? normalizeCustom({ title: 'いちばん長い物語', lines: Array.from({ length: 15 }, (_, i) => ({ who: i % 2 ? 'he' : 'she', text: 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ' })), ask: 'あ'.repeat(40), answer: 'Hello, see you tomorrow! また明日☔' }).story
+    : getStory(id);
+  const cv = renderShareCard(document.createElement('canvas'), st, { url: 'https://nagashinocat.github.io/aiaigasa/' });
+  return { w: cv.width, h: cv.height, png: cv.toDataURL('image/png') };
+};
 
 function resize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
