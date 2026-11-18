@@ -24,10 +24,16 @@ async function open(query = '') {
 }
 const shot = (page, name) => page.screenshot({ path: `screenshots/${name}.png` });
 const outcome = (page) => page.evaluate(() => window.__game.outcome);
-const startGame = async (page) => {
-  await page.evaluate(() => window.__debugSkipOpening && window.__debugSkipOpening());
-  await page.mouse.click(195, 420);
-  await page.waitForTimeout(1300);
+const startGame = async (page, id = 'hajimete') => {
+  if (await page.evaluate(() => document.getElementById('opening').hidden)) {
+    await page.evaluate(() => window.__debugChoose());
+  } else {
+    await page.evaluate(() => window.__debugSkipOpening());
+    await page.mouse.click(195, 420);
+    await page.waitForTimeout(1300);
+  }
+  await page.click(`#storyList [data-id=${id}]`);
+  await page.waitForTimeout(300);
 };
 
 try {
@@ -107,10 +113,13 @@ try {
     }
     await page.mouse.up();
     assert.equal(await outcome(page), 'clear');
-    await page.waitForTimeout(2000); await shot(page, '30-clear-promise');
-    await page.waitForTimeout(7500); await shot(page, '31-clear-rainbow');
-    await page.waitForTimeout(1500);
-    assert.match(await page.textContent('#endText'), /成立/);
+    await page.waitForTimeout(2000); await shot(page, '30-clear-ask');
+    assert.match(await page.textContent('#bubble'), /晴れた日にも/);
+    await page.waitForTimeout(6500); await shot(page, '31-clear-rainbow-answer');
+    assert.match(await page.textContent('#bubble'), /傘のいらない日/);
+    await page.waitForFunction(() => window.__game.mode() === 'end', null, { timeout: 8000 });
+    assert.match(await page.textContent('#endTitle'), /成立/);
+    assert.match(await page.textContent('#endText'), /晴れた日にも[\s\S]*傘のいらない日/);
     await shot(page, '32-clear-end');
     await page.click('#retry');
     await page.waitForTimeout(200);
@@ -128,7 +137,12 @@ try {
       assert.equal(await page.isVisible('#title .hint'), true);
       await page.mouse.click(195, 420);
       await page.waitForTimeout(1300);
+      assert.equal(await page.evaluate(() => window.__game.mode()), 'select');
+      await page.waitForTimeout(600); await shot(page, `43-select-${kind}`);
+      await page.click('#storyList [data-id=tenkin]');
+      await page.waitForTimeout(300);
       assert.equal(await page.evaluate(() => window.__game.mode()), 'play');
+      assert.equal(await page.evaluate(() => window.__game.story), 'tenkin');
       assert.equal(await outcome(page), 'playing');
       await page.close();
     }
@@ -162,6 +176,30 @@ try {
     await page.waitForTimeout(2000);
     assert.equal(await page.evaluate(() => window.__game.rainFrames), 0);
     await page.close();
+  }
+  if (wants('stories')) {
+    const ids = ['hajimete', 'tenkin', 'ryugaku', 'mukuchi', 'tenkou'];
+    for (const id of ids) {
+      const page = await open('?rain=2d');
+      await startGame(page, id);
+      assert.equal(await page.evaluate(() => window.__game.story), id);
+      await page.evaluate(() => window.__debugSetDoki(0.5));
+      await page.waitForTimeout(600); await shot(page, `50-story-${id}`);
+      await page.evaluate(() => window.__debugSetDoki(0.9999));
+      await page.evaluate(() => { const st = document.getElementById('stage'); let d = false;
+        const id = setInterval(() => { const s = window.__game.state; const w = s.rain < 0.5;
+          if (w !== d) { st.dispatchEvent(new Event(w ? 'pointerdown' : 'pointerup')); d = w; }
+          if (s.outcome !== 'playing') { clearInterval(id); st.dispatchEvent(new Event('pointerup')); } }, 50); });
+      await page.waitForFunction(() => window.__game.mode() === 'end', null, { timeout: 25000 });
+      assert.equal(await outcome(page), 'clear');
+      const title = await page.textContent('#endTitle');
+      assert.ok(title.length > 0, `${id} end title`);
+      await shot(page, `51-story-${id}-end`);
+      await page.click('#choose');
+      await page.waitForTimeout(200);
+      assert.equal(await page.evaluate(() => window.__game.mode()), 'select');
+      await page.close();
+    }
   }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');

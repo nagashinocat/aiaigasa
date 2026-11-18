@@ -71,3 +71,10 @@ test('finished state is frozen', () => {
 test('config is exposed', () => {
   assert.equal(CONFIG.graceMax, 2.0);
 });
+
+test('tune overrides drift', () => {
+  const fast = run(createState(), 1, false, false);
+  let slow = createState();
+  for (let t = 0; t < 1 - 1e-9; t += 0.05) slow = step(slow, 0.05, false, false, { drift: 0.05 });
+  assert.ok(slow.rain > fast.rain);
+});

@@ -28,9 +28,18 @@
     <h1>絶対に相合傘をやめさせないゲーム</h1>
   </div>
 
+  <div id="select" class="overlay" hidden>
+    <h2>物語をえらぶ</h2>
+    <div id="storyList"></div>
+  </div>
+
   <div id="end" class="overlay" hidden>
+    <h2 id="endTitle"></h2>
     <p id="endText"></p>
-    <button id="retry">もう一度</button>
+    <div class="row">
+      <button id="retry">もう一度</button>
+      <button id="choose" class="ghost">物語をえらぶ</button>
+    </div>
   </div>
 </div>
 <script type="module" src="src/main.js"></script>

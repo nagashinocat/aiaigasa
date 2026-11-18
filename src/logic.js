@@ -16,11 +16,12 @@ export function createState() {
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-export function step(state, dt, pressing, climax) {
+export function step(state, dt, pressing, climax, tune = {}) {
   if (state.outcome !== 'playing') return state;
   dt = clamp(dt, 0, CONFIG.maxDt);
   const s = { ...state, time: state.time + dt };
-  const push = (pressing ? CONFIG.pressRate : 0) - (climax ? CONFIG.climaxDrift : CONFIG.drift);
+  const drift = climax ? (tune.climaxDrift ?? CONFIG.climaxDrift) : (tune.drift ?? CONFIG.drift);
+  const push = (pressing ? CONFIG.pressRate : 0) - drift;
   s.rain = clamp(s.rain + push * dt, 0, 1);
   const { low, high } = band(climax);
   if (s.rain >= low && s.rain <= high) {

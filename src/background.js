@@ -51,7 +51,7 @@ export function createBackground(canvas) {
     if (!town) buildTown();
   }
 
-  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0, couple = true, sky = true }) {
+  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0, couple = true, sky = true, kids = false }) {
     const c = ctx;
     c.setTransform(D, 0, 0, D, 0, 0);
     const dark = Math.min(1, Math.max(0, rain));
@@ -122,9 +122,9 @@ export function createBackground(canvas) {
     }
     // 相合傘の二人(画面下から23%の位置に立つ、幅150px)
     if (couple && couplePath) {
-      const k = 150 / 120;
+      const k = (150 / 120) * (kids ? 0.74 : 1);
       c.save();
-      c.translate(W / 2 - 75, H * 0.77 - 130 * k);
+      c.translate(W / 2 - 60 * k, H * 0.77 - 130 * k);
       c.scale(k, k);
       c.fillStyle = rgb(mixC([14, 17, 23], [40, 24, 30], sunset));
       c.fill(couplePath);
