@@ -33,17 +33,38 @@ let last = performance.now();
 const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; } });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
+let endT = 0, endRain = 0.5;
 function startGame() {
   state = createState();
   mode = 'play';
+  Object.assign(view, { sunset: 0, rainbow: 0 });
   ui.showPlay();
 }
 
 function finish() {
-  mode = 'end';
-  const text = state.outcome === 'clear' ? `${PROMISE}\n\nデートの約束、成立!` : GOODBYE[state.outcome];
-  ui.say(text);
-  setTimeout(() => ui.showEnd(text), 1500);
+  endT = 0; endRain = state.rain;
+  if (state.outcome === 'clear') {
+    mode = 'ending';
+    ui.say(PROMISE, 'he');
+    ui.hideMeter();
+  } else {
+    mode = 'end';
+    ui.say(GOODBYE[state.outcome]);
+    setTimeout(() => ui.showEnd(GOODBYE[state.outcome]), 1500);
+  }
+}
+
+// クリア演出:雨が止む(0-3秒)→夕焼け(3-6秒)→虹(6-9秒)→終了画面(10秒)
+const ease = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+function ending(dt) {
+  endT += dt;
+  view.rain = endRain * (1 - ease(endT / 3));
+  view.sunset = ease((endT - 3) / 3);
+  view.rainbow = ease((endT - 6) / 3);
+  if (endT >= 10 && mode === 'ending') {
+    mode = 'end';
+    ui.showEnd(`${PROMISE}\n\nデートの約束、成立!`);
+  }
 }
 
 ui.onStart(() => { if (mode === 'title') startGame(); });
@@ -58,6 +79,7 @@ function frame(now) {
     ui.update(state, band(climax), lineAt(state.doki));
     if (state.outcome !== 'playing') finish();
   }
+  if (mode === 'ending') ending(Math.min(dt, 0.1));
   view.t += Math.min(dt, 0.1);
   if (mode === 'play') view.rain = state.rain;
   const v = debugView ? { ...view, ...debugView } : view;

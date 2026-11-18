@@ -15,7 +15,7 @@ export const LINES = [
   { at: 0.93, who: 'she', text: '…なに?', climax: true },
 ];
 
-export const PROMISE = '今度の日曜、一緒に出かけない? ――「…うん、行く」';
+export const PROMISE = '「今度の日曜、一緒に出かけない?」\n「…うん、行く」';
 
 export const GOODBYE = {
   closed: '「あ、止んだね」「…じゃあ、また明日」',

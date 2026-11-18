@@ -90,6 +90,28 @@ try {
       await page.close();
     }
   }
+  if (wants('clear')) {
+    const page = await open('?rain=2d');
+    await startGame(page);
+    await page.evaluate(() => window.__debugSetDoki(0.999));
+    for (let i = 0; i < 20 && (await outcome(page)) === 'playing'; i++) {
+      const rain = await page.evaluate(() => window.__game.state.rain);
+      if (rain < 0.5) await page.mouse.down(); else await page.mouse.up();
+      await page.waitForTimeout(100);
+    }
+    await page.mouse.up();
+    assert.equal(await outcome(page), 'clear');
+    await page.waitForTimeout(2000); await shot(page, '30-clear-promise');
+    await page.waitForTimeout(7500); await shot(page, '31-clear-rainbow');
+    await page.waitForTimeout(1500);
+    assert.match(await page.textContent('#endText'), /成立/);
+    await shot(page, '32-clear-end');
+    await page.click('#retry');
+    await page.waitForTimeout(200);
+    assert.equal(await outcome(page), 'playing');
+    assert.equal(await page.evaluate(() => window.__game.state.doki < 0.01), true);
+    await page.close();
+  }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
 } finally {

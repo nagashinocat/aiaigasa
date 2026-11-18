@@ -28,9 +28,10 @@ export function createUI(doc) {
     },
     say,
     showTitle() { title.hidden = false; hud.hidden = true; end.hidden = true; },
-    showPlay() { title.hidden = true; hud.hidden = false; end.hidden = true; lastText = null; bubble.className = ''; },
+    showPlay() { meter.style.visibility = ''; doc.getElementById('doki').style.visibility = ''; title.hidden = true; hud.hidden = false; end.hidden = true; lastText = null; bubble.className = ''; },
     showEnd(text) { $('endText').textContent = text; end.hidden = false; hud.hidden = true; },
     hideHud() { hud.hidden = true; },
+    hideMeter() { meter.style.visibility = 'hidden'; doc.getElementById('doki').style.visibility = 'hidden'; },
     onStart(fn) { title.addEventListener('pointerup', fn); },
     onRetry(fn) { $('retry').addEventListener('click', fn); },
   };
