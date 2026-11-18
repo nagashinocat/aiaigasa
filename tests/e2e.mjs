@@ -60,6 +60,16 @@ try {
     await shot(page, '04-landscape');
     await page.close();
   }
+  if (wants('background')) {
+    const page = await open();
+    await page.evaluate(() => window.__debugBackground({ rain: 0.9 }));
+    await page.waitForTimeout(200); await shot(page, '10-bg-heavy');
+    await page.evaluate(() => window.__debugBackground({ rain: 0.1 }));
+    await page.waitForTimeout(200); await shot(page, '11-bg-light');
+    await page.evaluate(() => window.__debugBackground({ rain: 0, sunset: 1, rainbow: 1 }));
+    await page.waitForTimeout(200); await shot(page, '12-bg-sunset-rainbow');
+    await page.close();
+  }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
 } finally {

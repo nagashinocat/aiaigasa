@@ -2,10 +2,24 @@ import { createState, step, band } from './logic.js';
 import { lineAt, isClimax, GOODBYE, PROMISE } from './story.js';
 import { createInput } from './input.js';
 import { createUI } from './ui.js';
+import { createBackground } from './background.js';
 
 const stage = document.getElementById('stage');
 const ui = createUI(document);
 const input = createInput(stage, window);
+
+const bg = createBackground(document.getElementById('bg'));
+const view = { rain: 0.5, sunset: 0, rainbow: 0, t: 0 };
+let debugView = null;
+window.__debugBackground = (v) => { debugView = v; };
+
+function resize() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  bg.resize(innerWidth, innerHeight, dpr);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+resize();
 
 let mode = 'title';          // title | play | end
 let state = createState();
@@ -38,6 +52,9 @@ function frame(now) {
     ui.update(state, band(climax), lineAt(state.doki));
     if (state.outcome !== 'playing') finish();
   }
+  view.t += Math.min(dt, 0.1);
+  if (mode === 'play') view.rain = state.rain;
+  bg.draw(debugView ? { ...view, ...debugView } : view);
   requestAnimationFrame(frame);
 }
 ui.showTitle();
