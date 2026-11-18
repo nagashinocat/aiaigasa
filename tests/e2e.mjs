@@ -1,0 +1,68 @@
+// 画面確認:node tests/e2e.mjs [section...]
+import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import assert from 'node:assert/strict';
+
+const PORT = 8123;
+const BASE = `http://localhost:${PORT}/index.html`;
+mkdirSync('screenshots', { recursive: true });
+const server = spawn('python3', ['-m', 'http.server', String(PORT)], { stdio: 'ignore' });
+await new Promise((r) => setTimeout(r, 700));
+
+const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const only = process.argv.slice(2);
+const wants = (name) => only.length === 0 || only.includes(name);
+const errors = [];
+
+async function open(query = '') {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto(BASE + query);
+  return page;
+}
+const shot = (page, name) => page.screenshot({ path: `screenshots/${name}.png` });
+const outcome = (page) => page.evaluate(() => window.__game.outcome);
+const startGame = async (page) => {
+  await page.evaluate(() => window.__debugSkipOpening && window.__debugSkipOpening());
+  await page.mouse.click(195, 420);
+  await page.waitForTimeout(300);
+};
+
+try {
+  if (wants('basic')) {
+    const page = await open();
+    await shot(page, '01-title');
+    await startGame(page);
+    assert.equal(await page.evaluate(() => window.__game.mode()), 'play');
+    // 押したり離したりして帯内に保つ
+    for (let i = 0; i < 30; i++) {
+      const rain = await page.evaluate(() => window.__game.state.rain);
+      if (rain < 0.5) await page.mouse.down(); else await page.mouse.up();
+      await page.waitForTimeout(100);
+    }
+    await page.mouse.up();
+    assert.equal(await outcome(page), 'playing');
+    await shot(page, '02-playing');
+    await page.waitForTimeout(6000);
+    assert.equal(await outcome(page), 'closed');
+    await page.waitForTimeout(1800);
+    assert.match(await page.textContent('#endText'), /また明日/);
+    await shot(page, '03-gameover');
+    await page.close();
+  }
+  if (wants('landscape')) {
+    const page = await open();
+    await startGame(page);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.waitForTimeout(500);
+    await shot(page, '04-landscape');
+    await page.close();
+  }
+  if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
+  console.log('e2e ok');
+} finally {
+  await browser.close();
+  server.kill();
+}
