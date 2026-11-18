@@ -10,8 +10,57 @@ void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
 
 const FS = `precision mediump float;
 uniform sampler2D u_scene, u_mask; uniform vec2 u_res; uniform float u_time, u_fade;
+uniform vec2 u_leafBase; uniform float u_leafAng, u_leafLen;
 varying vec2 v_uv;
 ${GLSL_COMMON}
+// ガラスの手前の葉っぱ:透過光、葉脈、濡れたつや、水玉
+vec4 leafAt(vec2 frag){
+  vec2 d = frag - u_leafBase;
+  float c = cos(u_leafAng), s = sin(u_leafAng);
+  vec2 q = vec2(c*d.x + s*d.y, -s*d.x + c*d.y)/u_leafLen;
+  float x = q.x;
+  float y = q.y;
+  float xc = clamp(x, 0., 1.);
+  float w = .27*pow(xc,.5)*pow(1.-xc,.8)*1.9;
+  float px = 1.2/u_leafLen;
+  float body = S(px, -px, abs(y) - w)*step(0., x)*step(x, 1.);
+  float stem = S(.012, .006, abs(q.y))*S(-.22,-.2,x)*S(.01,0.,x);
+  float a = max(body, stem);
+  if (a <= 0.) return vec4(0.);
+  float yn = clamp(y/max(w,1e-3), -1., 1.);
+  float side = abs(yn);
+  float mid = S(.016, .004, abs(y));
+  float sv = abs(fract((x - side*w*2.6)*7.) - .5);
+  float vein = S(.07, .0, sv)*S(.08,.3,side)*S(1.,.75,side)*S(.05,.15,x);
+  float tex = fbm(q*vec2(55., 90.));
+  vec3 dark = vec3(.10,.27,.10), mid1 = vec3(.27,.52,.18), glow = vec3(.62,.80,.30);
+  vec3 col = mix(dark, mid1, .35 + .45*S(.0,.9,x)*(1. - side*.6));
+  col = mix(col, glow, S(.45,1.,side)*.35 + vein*.2 + mid*.35);
+  col *= .88 + .24*tex;
+  float sheen = pow(max(0., 1. - abs(yn + .38 - .08*sin(x*7.))*2.6), 5.);
+  col += vec3(.75,.9,.8)*sheen*.28;
+  col *= 1. - .25*S(.88,1.,side);
+  col = mix(col, vec3(.22,.30,.14), stem*(1.-body));
+  for (int i = 0; i < 7; i++) {
+    float fi = float(i);
+    vec2 bp = vec2(.18 + fi*.11, (h21(vec2(fi, 3.)) - .5)*.9);
+    float bw = .27*pow(bp.x,.5)*pow(1.-bp.x,.8)*1.9;
+    bp.y *= bw;
+    float br = .012 + .014*h21(vec2(fi, 9.));
+    vec2 bd = (vec2(x, y) - bp)/br;
+    float bl = length(bd);
+    col *= 1. - .22*S(1.5, .9, length(bd - vec2(.35,-.45)))*S(.95,1.1,bl);
+    if (bl < 1.) {
+      float z = sqrt(1. - bl*bl);
+      vec3 under = col*(.85 + .55*(1.-bl));
+      under += vec3(.9,1.,.95)*pow(max(0., dot(normalize(vec3(bd, z)), normalize(vec3(-.45,.55,.7)))), 30.)*.9;
+      under *= 1. - .35*S(.75, 1., bl);
+      col = mix(col, under, S(1., .9, bl));
+    }
+  }
+  return vec4(col, a);
+}
+
 vec3 blurred(vec2 uv, float r){
   vec2 px = r/u_res;
   vec3 c = vec3(0.);
@@ -38,6 +87,8 @@ void main(){
   col += S(.0,.02,-nrm.y)*c*.15;
   // ガラスに当たる光の筋
   col += vec3(.04)*S(.6,1.,1. - abs(v_uv.x - v_uv.y*.4 - .3)*3.);
+  vec4 lf = leafAt(frag);
+  col = mix(col, lf.rgb, lf.a);
   gl_FragColor = vec4(col, u_fade);
 }`;
 
@@ -62,6 +113,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
   const lctx = leafCanvas.getContext('2d');
   let backdropReady = false;
   let W = 1, H = 1, D = 1, T = 0, running = false, done = false, raf = 0, last = 0, fade = 1, leaving = false;
+  const leafGeom = { ax: 0, ay: 0, ang: 0, len: 1 };
   const leaf = { ang: 0, vel: 0, drip: 0, falls: [], splashes: [], nextHit: 0.5 };
 
   // WebGL
@@ -89,7 +141,8 @@ export function createOpening(canvas, onDone, { force } = {}) {
       texS = mk(0); texM = mk(1);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       const u = (n) => gl.getUniformLocation(prog, n);
-      U = { scene: u('u_scene'), mask: u('u_mask'), res: u('u_res'), time: u('u_time'), fade: u('u_fade') };
+      U = { scene: u('u_scene'), mask: u('u_mask'), res: u('u_res'), time: u('u_time'), fade: u('u_fade'),
+        leafBase: u('u_leafBase'), leafAng: u('u_leafAng'), leafLen: u('u_leafLen') };
       gl.uniform1i(U.scene, 0); gl.uniform1i(U.mask, 1);
     }
   } catch (e) { console.warn('opening GL', e); gl = null; }
@@ -174,8 +227,10 @@ export function createOpening(canvas, onDone, { force } = {}) {
     leaf.ang += leaf.vel * dt;
     const len = W * 0.62, ax = -W * 0.08, ay = H * 0.86;
     const ang = -0.42 + leaf.ang * 0.18;
+    leafGeom.ax = ax; leafGeom.ay = ay; leafGeom.ang = ang; leafGeom.len = len;
     c.save(); c.filter = 'none';
     c.translate(ax, ay); c.rotate(ang);
+    if (!gl) { // WebGLが使えるときは葉の本体はシェーダーで描く
     c.strokeStyle = '#1e3a24'; c.lineWidth = 4; c.beginPath(); c.moveTo(-W * 0.1, 6); c.lineTo(0, 0); c.stroke();
     const lg = c.createLinearGradient(0, -len * 0.3, len * 0.3, len * 0.3);
     lg.addColorStop(0, '#4f8a4a'); lg.addColorStop(1, '#244a2a');
@@ -192,6 +247,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       const x = len * i / 6;
       c.beginPath(); c.moveTo(x, -len * 0.02); c.lineTo(x + len * 0.08, -len * 0.12); c.moveTo(x, len * 0.0); c.lineTo(x + len * 0.08, len * 0.1); c.stroke();
     }
+    }
     // 葉の上で弾ける雨粒
     for (let i = leaf.splashes.length - 1; i >= 0; i--) {
       const s = leaf.splashes[i]; s.a -= dt * 3;
@@ -201,8 +257,10 @@ export function createOpening(canvas, onDone, { force } = {}) {
     }
     // 葉先のしずく
     leaf.drip = Math.min(1, leaf.drip + dt * 0.12);
-    c.fillStyle = 'rgba(225,238,255,.85)';
-    c.beginPath(); c.arc(len + 2, 3, 2 + leaf.drip * 4, 0, 7); c.fill();
+    const dr = 2 + leaf.drip * 4;
+    const dg = c.createRadialGradient(len + 2 - dr * 0.35, 3 - dr * 0.35, dr * 0.1, len + 2, 3, dr);
+    dg.addColorStop(0, 'rgba(255,255,255,.95)'); dg.addColorStop(0.35, 'rgba(200,225,210,.35)'); dg.addColorStop(1, 'rgba(120,150,140,.55)');
+    c.fillStyle = dg; c.beginPath(); c.arc(len + 2, 3, dr, 0, 7); c.fill();
     const tip = { x: ax + Math.cos(ang) * len, y: ay + Math.sin(ang) * len };
     c.restore();
     if (leaf.drip >= 1) { leaf.falls.push({ x: tip.x, y: tip.y + 6, v: 0 }); leaf.drip = 0; }
@@ -244,6 +302,9 @@ export function createOpening(canvas, onDone, { force } = {}) {
       gl.uniform2f(U.res, canvas.width, canvas.height);
       gl.uniform1f(U.time, T + 3);
       gl.uniform1f(U.fade, fade);
+      gl.uniform2f(U.leafBase, leafGeom.ax, H - leafGeom.ay);
+      gl.uniform1f(U.leafAng, -leafGeom.ang);
+      gl.uniform1f(U.leafLen, leafGeom.len);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     } else {
       const c = ctx2d;

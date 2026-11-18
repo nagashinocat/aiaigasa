@@ -30,12 +30,12 @@ export function createRain(canvas, bgCanvas, { force, perfCheck = true, onFallba
   return {
     get kind() { return impl.kind; },
     resize(w, h, dpr) { size = [w, h, dpr]; impl.resize(w, h, dpr); },
-    draw(rain, dt, t) {
+    draw(rain, dt, t, sky) {
       if (impl.kind === 'gl' && perfCheck && frames < 120) {
         frames++; total += dt;
         if (frames === 120 && total / frames > 0.04) { use2D(); return; }
       }
-      impl.draw(rain, dt, t);
+      impl.draw(rain, dt, t, sky);
     },
   };
 }

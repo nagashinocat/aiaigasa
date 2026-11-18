@@ -1,25 +1,27 @@
 // 会話の一覧。at = そのせりふが出るドキドキ値(0〜1)
 export const LINES = [
-  { at: 0.00, who: 'she', text: 'ごめんね、急に降ってきちゃって…' },
-  { at: 0.07, who: 'he',  text: 'いいよ。駅まで同じ方向だし' },
-  { at: 0.15, who: 'she', text: '天気予報、晴れって言ってたのにな' },
-  { at: 0.23, who: 'he',  text: '俺は信じてなかった。だから傘ある' },
-  { at: 0.31, who: 'she', text: 'ふふ、なにそれ' },
-  { at: 0.40, who: 'he',  text: '…肩、濡れてない?' },
-  { at: 0.48, who: 'she', text: 'だいじょうぶ。…そっちこそ' },
-  { at: 0.56, who: 'he',  text: 'こっちは平気。慣れてるから' },
-  { at: 0.64, who: 'she', text: '雨の音って、ちょっと落ち着くよね' },
-  { at: 0.72, who: 'he',  text: 'わかる。…なんか、話しやすい' },
-  { at: 0.80, who: 'she', text: 'もうすぐ駅、着いちゃうね' },
-  { at: 0.87, who: 'he',  text: 'あのさ…', climax: true },
-  { at: 0.93, who: 'she', text: '…なに?', climax: true },
+  { at: 0.00, who: 'she', text: '…ほんとに入れてもらっていいの?' },
+  { at: 0.07, who: 'he',  text: 'うん。…ていうか、どうぞ' },
+  { at: 0.14, who: 'she', text: 'ふふ、なんで敬語なの' },
+  { at: 0.21, who: 'he',  text: 'いや…思ったより近いなって' },
+  { at: 0.28, who: 'she', text: '…言わないでよ。意識しちゃうじゃん' },
+  { at: 0.35, who: 'he',  text: 'ご、ごめん' },
+  { at: 0.42, who: 'she', text: '…ねえ、そっちの肩びしょびしょだよ' },
+  { at: 0.49, who: 'he',  text: '気のせいだよ' },
+  { at: 0.56, who: 'she', text: '傘、ずっとこっちに傾けてるでしょ' },
+  { at: 0.63, who: 'he',  text: '…バレてた?' },
+  { at: 0.70, who: 'she', text: '…もうちょっとだけ、降っててほしいな' },
+  { at: 0.77, who: 'he',  text: 'え?' },
+  { at: 0.83, who: 'she', text: 'な、なんでもない!' },
+  { at: 0.88, who: 'he',  text: 'あのさ…', climax: true },
+  { at: 0.94, who: 'she', text: '……うん', climax: true },
 ];
 
-export const PROMISE = '「今度の日曜、一緒に出かけない?」\n「…うん、行く」';
+export const PROMISE = '「晴れた日にも、会ってくれる?」\n「…うん。傘のいらない日にね」';
 
 export const GOODBYE = {
-  closed: '「あ、止んだね」「…じゃあ、また明日」',
-  shelter: '「すごい雨…!」「今日はここで。また明日」',
+  closed: '「あ…止んじゃったね」\n「…うん。じゃあ、また明日」',
+  shelter: '「わっ、すごい雨…!」\n「…今日はここまで、だね。また明日」',
 };
 
 export function lineAt(doki) {

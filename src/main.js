@@ -22,6 +22,7 @@ const rain = createRain(document.getElementById('rain'), document.getElementById
 const opening = createOpening(document.getElementById('opening'), () => startGame(), { force: params.get('rain') });
 const hint = document.querySelector('#title .hint');
 window.__debugSkipOpening = () => opening.skip();
+window.__debugHideOpening = () => opening.stop();
 
 function resize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -92,8 +93,8 @@ function frame(now) {
   // オープニングが全面を覆っている間は、下の雨を描かない(重さ対策)
   if (!opening.covering || debugView) {
     const v = debugView ? { ...view, ...debugView } : view;
-    bg.draw(v);
-    rain.draw(v.rain, Math.min(dt, 0.1), view.t);
+    bg.draw({ ...v, sky: rain.kind !== 'gl' });
+    rain.draw(v.rain, Math.min(dt, 0.1), view.t, v);
     game.rainFrames++;
   }
   requestAnimationFrame(frame);

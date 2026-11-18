@@ -9,6 +9,10 @@ float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fra
 vec3 h31(float p){ vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787)); p3+=dot(p3,p3.yzx+19.19);
   return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x)); }
 
+float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(h21(i),h21(i+vec2(1.,0.)),f.x), mix(h21(i+vec2(0.,1.)),h21(i+1.),f.x), f.y); }
+float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<5;i++){ v+=a*n2(p); p=p*2.03+vec2(1.7,9.2); a*=.5; } return v; }
+
 // ガラスを流れ落ちる水滴
 vec2 dropLayer(vec2 uv, float t){
   vec2 UV = uv;
@@ -72,8 +76,64 @@ float streak(vec2 uv, float t, float scale, float speed, float width, float len,
 const FS = `precision mediump float;
 uniform sampler2D u_bg; uniform vec2 u_res; uniform float u_time, u_rain;
 uniform vec2 u_lamp0, u_lamp1;
+uniform float u_sunset, u_rainbow;
 varying vec2 v_uv;
 ${GLSL_COMMON}
+// 虹の色(t: 0=内側の紫 → 1=外側の赤)
+vec3 spectral(float t){
+  vec3 c = vec3(S(.45,.8,t) + .35*S(.0,.12,t)*(1.-S(.12,.3,t)),
+                S(.18,.45,t)*(1.-S(.62,.88,t)),
+                1. - S(.25,.55,t));
+  return c*S(0.,.12,t)*S(1.,.85,t);
+}
+
+// 空:グラデーション、流れる雲、夕日、虹
+vec3 skyAt(vec2 uv){
+  float asp = u_res.x/u_res.y;
+  vec3 top = mix(mix(vec3(.52,.57,.64), vec3(.25,.29,.36), u_rain), vec3(.86,.50,.48), u_sunset);
+  vec3 hor = mix(mix(vec3(.74,.77,.81), vec3(.45,.49,.55), u_rain), vec3(1.,.79,.56), u_sunset);
+  vec3 col = mix(hor, top, S(.2,1.,uv.y));
+  // 夕日の光
+  vec2 sd = (uv - vec2(.8,.36))*vec2(asp,1.);
+  float sl = length(sd);
+  col += vec3(1.,.70,.40)*u_sunset*(exp(-sl*5.)*.55 + exp(-sl*28.)*.5);
+  // 雲
+  vec2 cp = vec2(uv.x*asp, uv.y)*vec2(1.5,3.4) + vec2(u_time*.012, 0.);
+  float cl = fbm(cp*2.);
+  float cl2 = fbm(cp*2. + vec2(.06,-.08));
+  float thr = mix(.30, .44, u_sunset) + (1.-u_rain)*.08;
+  float dens = S(thr, thr + .32, cl)*S(.05,.35,uv.y);
+  float lit = clamp((cl - cl2)*5. + .5, 0., 1.);
+  vec3 cDark = mix(mix(vec3(.42,.46,.52), vec3(.22,.25,.31), u_rain), vec3(.52,.34,.42), u_sunset);
+  vec3 cLit = mix(vec3(.84,.86,.90), vec3(1.,.74,.55), u_sunset);
+  vec3 cc = mix(cDark, cLit, lit);
+  // 雲のふちが夕日で光る
+  cc += vec3(1.,.6,.35)*u_sunset*S(.0,.25,dens)*(1.-S(.25,.7,dens))*.35*exp(-sl*1.5);
+  col = mix(col, cc, dens*.9);
+  // 雲の切れ間から差す光の筋
+  float ang = atan(sd.y, sd.x);
+  float rays = S(.55,1., n2(vec2(ang*7., u_time*.05)))*u_sunset*(1.-dens)*exp(-sl*1.6)*.09;
+  col += vec3(1.,.82,.6)*rays;
+  // 虹(主虹・副虹・内側の明るさ・アレキサンダーの暗帯)
+  if (u_rainbow > 0.) {
+    vec2 c = vec2(.5, .28);
+    vec2 p = (uv - c)*vec2(asp,1.);
+    float r = length(p);
+    float R = .55*max(asp, 1.);
+    float fromLeft = 3.14159 - atan(p.y, p.x);
+    float prog = min(1., u_rainbow*1.15)*3.14159;
+    float vis = (1. - S(prog - .25, prog, fromLeft))*S(-.02,.18,p.y/max(r,1e-3));
+    float a = u_rainbow*vis;
+    vec3 bow = spectral((r - R*.9)/(R*.1));
+    vec3 bow2 = spectral(1. - (r - R*1.22)/(R*.12))*.12;
+    col *= 1. - .06*a*S(R*.99, R*1.01, r)*S(R*1.23, R*1.21, r);
+    col += vec3(.05)*a*S(R*.9, R*.5, r);
+    vec3 add = (bow + bow2)*a*(.34 - .12*dens);
+    col = 1. - (1. - col)*(1. - add);
+  }
+  return col;
+}
+
 void main(){
   vec2 frag = v_uv*u_res;
   vec2 uv = (frag - .5*u_res)/u_res.y;
@@ -91,7 +151,8 @@ void main(){
   float cy = drops(uv+e.yx,t,l0,l1,l2);
   vec2 nrm = vec2(cx - c, cy - c);
   vec2 suv = v_uv + nrm*1.2;
-  vec3 col = texture2D(u_bg, suv).rgb;
+  vec4 bgc = texture2D(u_bg, suv);
+  vec3 col = mix(skyAt(suv), bgc.rgb, bgc.a);
   // 水滴の縁を少し暗く、上側にハイライト
   col *= 1. - c*.12;
   col += S(.0,.02,-nrm.y)*c*.18;
@@ -146,15 +207,17 @@ export function createRainGL(canvas, bgCanvas) {
     [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   const u = (n) => gl.getUniformLocation(prog, n);
-  const U = { res: u('u_res'), time: u('u_time'), rain: u('u_rain'), l0: u('u_lamp0'), l1: u('u_lamp1') };
+  const U = { res: u('u_res'), time: u('u_time'), rain: u('u_rain'), l0: u('u_lamp0'), l1: u('u_lamp1'), sunset: u('u_sunset'), rainbow: u('u_rainbow') };
 
   function resize(w, h, dpr) {
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 
-  function draw(rain, dt, t) {
+  function draw(rain, dt, t, sky = {}) {
     if (gl.isContextLost()) return;
+    gl.uniform1f(U.sunset, sky.sunset || 0);
+    gl.uniform1f(U.rainbow, sky.rainbow || 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bgCanvas);
     gl.uniform2f(U.res, canvas.width, canvas.height);
     gl.uniform1f(U.time, t);

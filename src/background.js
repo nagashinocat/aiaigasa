@@ -51,7 +51,7 @@ export function createBackground(canvas) {
     if (!town) buildTown();
   }
 
-  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0, couple = true }) {
+  function draw({ rain = 0.5, sunset = 0, rainbow = 0, t = 0, couple = true, sky = true }) {
     const c = ctx;
     c.setTransform(D, 0, 0, D, 0, 0);
     const dark = Math.min(1, Math.max(0, rain));
@@ -60,10 +60,11 @@ export function createBackground(canvas) {
     const bot = mixC(mixC([184, 192, 200], [112, 122, 136], dark), [255, 205, 150], sunset);
     let g = c.createLinearGradient(0, 0, 0, H * GROUND);
     g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    // sky=false のとき空と虹は WebGL 側で描くので透明のままにする
+    if (sky) { c.fillStyle = g; c.fillRect(0, 0, W, H); } else c.clearRect(0, 0, W, H);
 
     // 虹
-    if (rainbow > 0) {
+    if (sky && rainbow > 0) {
       const cols = ['#ff5a5a', '#ff9a3c', '#ffe14d', '#6edc6e', '#5ab4ff', '#6a6aff', '#b06aff'];
       const cx = W * 0.5, cy = H * 0.72, R = Math.max(W, H) * 0.55, bw = R * 0.022;
       c.save();

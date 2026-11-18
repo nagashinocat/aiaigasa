@@ -61,7 +61,8 @@ try {
     await page.close();
   }
   if (wants('background')) {
-    const page = await open();
+    const page = await open('?rain=2d');
+    await page.evaluate(() => window.__debugHideOpening());
     await page.evaluate(() => window.__debugBackground({ rain: 0.9 }));
     await page.waitForTimeout(200); await shot(page, '10-bg-heavy');
     await page.evaluate(() => window.__debugBackground({ rain: 0.1 }));
@@ -73,6 +74,7 @@ try {
   if (wants('rain')) {
     for (const [q, kind] of [['?rain=2d', '2d'], ['?perf=off', 'gl']]) {
       const page = await open(q);
+      await page.evaluate(() => window.__debugHideOpening());
       await page.waitForTimeout(500);
       assert.equal(await page.evaluate(() => window.__game.rainKind), kind);
       await page.evaluate(() => window.__debugBackground({ rain: 0.9 }));
@@ -80,6 +82,10 @@ try {
       await page.evaluate(() => window.__debugBackground({ rain: 0.3 }));
       await page.waitForTimeout(1200); await shot(page, `21-rain-${kind}-light`);
       if (kind === 'gl') {
+        await page.evaluate(() => window.__debugBackground({ rain: 0.05, sunset: 1, rainbow: 1 }));
+        await page.waitForTimeout(1200); await shot(page, '23-rain-gl-sunset-rainbow');
+        await page.evaluate(() => window.__debugBackground({ rain: 0.15, sunset: 0.5, rainbow: 0.5 }));
+        await page.waitForTimeout(1200); await shot(page, '24-rain-gl-half-rainbow');
         await page.evaluate(() => document.getElementById('rain').getContext('webgl').getExtension('WEBGL_lose_context').loseContext());
         await page.waitForTimeout(500);
         assert.equal(await page.evaluate(() => window.__game.rainKind), '2d');
