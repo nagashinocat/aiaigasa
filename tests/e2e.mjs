@@ -127,6 +127,36 @@ try {
       await page.close();
     }
   }
+  if (wants('playthrough')) {
+    // 帯の中央を狙って押す/離すを繰り返すボットで最後までクリアできるか
+    const page = await open('?rain=2d');
+    await startGame(page);
+    const r = await page.evaluate(() => new Promise((done) => {
+      const stage = document.getElementById('stage');
+      let down = false, out = { normal: 0, climax: 0 }, t0 = performance.now();
+      const id = setInterval(() => {
+        const s = window.__game.state;
+        const want = s.rain < 0.5;
+        if (want !== down) { stage.dispatchEvent(new Event(want ? 'pointerdown' : 'pointerup')); down = want; }
+        const climax = s.doki >= 0.87;
+        const b = climax ? [0.42, 0.58] : [0.35, 0.65];
+        if (s.rain < b[0] || s.rain > b[1]) out[climax ? 'climax' : 'normal']++;
+        if (s.outcome !== 'playing') { clearInterval(id); done({ outcome: s.outcome, secs: (performance.now() - t0) / 1000, out }); }
+      }, 50);
+    }));
+    console.log('playthrough', JSON.stringify(r));
+    assert.equal(r.outcome, 'clear');
+    assert.ok(r.secs > 60 && r.secs < 130);
+    const css = await page.evaluate(() => { const c = getComputedStyle(document.body); return [c.touchAction, c.userSelect]; });
+    assert.deepEqual(css, ['none', 'none']);
+    await page.close();
+  }
+  if (wants('idle-under-opening')) {
+    const page = await open('?perf=off');
+    await page.waitForTimeout(2000);
+    assert.equal(await page.evaluate(() => window.__game.rainFrames), 0);
+    await page.close();
+  }
   if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   console.log('e2e ok');
 } finally {

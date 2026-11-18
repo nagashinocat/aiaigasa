@@ -288,6 +288,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     start, stop, resize,
     kind: gl ? 'gl' : '2d',
     get time() { return T; },
+    get covering() { return running && !leaving; },
     get ready() { return done || T >= HINT_AT; },
     get hintAt() { return HINT_AT; },
     // 書いている途中のタップは書き終わりまで飛ばす。書き終わり後のタップで開始

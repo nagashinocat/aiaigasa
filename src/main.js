@@ -36,7 +36,7 @@ resize();
 let mode = 'title';          // title | play | end
 let state = createState();
 let last = performance.now();
-const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; } });
+const game = (window.__game = { get outcome() { return state.outcome; }, get state() { return state; }, mode: () => mode, get rainKind() { return rain.kind; }, get openingKind() { return opening.kind; }, rainFrames: 0 });
 window.__debugSetDoki = (v) => { state = { ...state, doki: v }; };
 
 let endT = 0, endRain = 0.5;
@@ -89,9 +89,13 @@ function frame(now) {
   if (mode === 'ending') ending(Math.min(dt, 0.1));
   view.t += Math.min(dt, 0.1);
   if (mode === 'play') view.rain = state.rain;
-  const v = debugView ? { ...view, ...debugView } : view;
-  bg.draw(v);
-  rain.draw(v.rain, Math.min(dt, 0.1), view.t);
+  // オープニングが全面を覆っている間は、下の雨を描かない(重さ対策)
+  if (!opening.covering || debugView) {
+    const v = debugView ? { ...view, ...debugView } : view;
+    bg.draw(v);
+    rain.draw(v.rain, Math.min(dt, 0.1), view.t);
+    game.rainFrames++;
+  }
   requestAnimationFrame(frame);
 }
 ui.showTitle();
