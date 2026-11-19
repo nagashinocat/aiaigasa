@@ -88,3 +88,15 @@ test('smoothPath can join pieces with a sharp corner (the dent of the heart)', (
   assert.ok(poly.pts.some((p) => Math.abs(p.x - 100) < 1e-6 && Math.abs(p.y - 100) < 1e-6));
   assert.ok(poly.len > 200);
 });
+
+import { heartPoint } from '../src/pen.js';
+test('heartPoint: the dent is at the top middle, the tip at the bottom middle, left-right symmetric', () => {
+  const notch = heartPoint(0), tip = heartPoint(Math.PI);
+  assert.ok(Math.abs(notch.x) < 1e-9 && Math.abs(tip.x) < 1e-9);
+  assert.ok(notch.y > tip.y);
+  const r = heartPoint(1.2), l = heartPoint(-1.2);
+  assert.ok(Math.abs(r.x + l.x) < 1e-9 && Math.abs(r.y - l.y) < 1e-9);
+  // 両側のふくらみは、くぼみより高い
+  let maxY = -Infinity; for (let t = 0; t < Math.PI; t += 0.01) maxY = Math.max(maxY, heartPoint(t).y);
+  assert.ok(maxY > notch.y + 5);
+});

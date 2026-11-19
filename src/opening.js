@@ -1,7 +1,7 @@
 // オープニング:水滴のついた曇りガラス、すぐ向こうで雨に揺れる葉っぱ、
 // 奥にぼやけた相合傘の二人。ガラスに指で「while it's raining」と書かれていく
 import { GLSL_COMMON, compile } from './rainGL.js';
-import { buildPlan, penAt, finaleAt, FINALE, smoothPath, pathAt } from './pen.js';
+import { buildPlan, penAt, finaleAt, FINALE, smoothPath, pathAt, heartPoint } from './pen.js';
 
 const TEXT = "while it's raining";
 const WRITE_START = 1.0;
@@ -342,30 +342,44 @@ export function createOpening(canvas, onDone, { force } = {}) {
     const img = c.getImageData(0, 0, ink.width, ink.height).data;
     const colY = new Float32Array(Math.ceil(W) + 1).fill(NaN);
     const top = Math.max(0, Math.floor((y0 - size) * D)), bot = Math.min(ink.height, Math.ceil((y0 + size * 0.5) * D));
+    const runs = [];
     for (let x = 0; x < colY.length; x++) {
       const px = Math.min(ink.width - 1, Math.round(x * D));
-      let sum = 0, n = 0;
-      for (let y = top; y < bot; y++) if (img[(y * ink.width + px) * 4 + 3] > 60) { sum += y; n++; }
+      let sum = 0, n = 0, run = 0;
+      for (let y = top; y < bot; y++) {
+        if (img[(y * ink.width + px) * 4 + 3] > 110) { sum += y; n++; run++; } else if (run) { runs.push(run); run = 0; }
+      }
+      if (run) runs.push(run);
       if (n) colY[x] = sum / n / D;
     }
+    runs.sort((a, b) => a - b);
+    // 文字の線の太さ(斜めや曲がりで厚く数えた分を除くため、短いほうから 15% のところ)
+    const stroke = runs.length ? Math.max(1.5, runs[Math.floor(runs.length * 0.15)] / D) : size * 0.06;
     let lastY = y0 - size * 0.3;
     for (let x = 0; x < colY.length; x++) { if (Number.isNaN(colY[x])) colY[x] = lastY; else lastY = colY[x]; }
     const plan = buildPlan(letters);
     hintAt = WRITE_START + plan.total + FINALE.end + 0.5;
-    // 水の筋:g を書き終えたところから、タイトルをハートで囲み、ハートの下から葉っぱの先の真上まで流れる
+    // 水の筋:g を書き終えたところから、きれいなハートでタイトルを囲み、下のとがりから葉っぱの先の真上へ
     const last = letters[letters.length - 1];
     const P0 = { x: last.x1, y: colY[Math.min(colY.length - 1, Math.round(last.x1))] };
+    const hs = (W * 0.94) / 32;                 // ハートの幅を画面の 94% に
+    const hcy = y0 + 1.2 * hs;                  // タイトルがハートの上のほうに収まる高さ
+    const hp = (t) => { const q = heartPoint(t); return { x: W / 2 + q.x * hs, y: hcy - q.y * hs }; };
+    // 右側で、g の高さにいちばん近い点から入る
+    let tg = 1.6, best = Infinity;
+    for (let t = 0.9; t < 2.6; t += 0.01) { const q = hp(t); const d = Math.abs(q.y - P0.y) + (q.x < P0.x ? 999 : 0); if (d < best) { best = d; tg = t; } }
+    const right = [P0, { x: (P0.x + hp(tg).x) / 2 + hs * 0.6, y: P0.y - hs * 0.8 }];
+    for (let t = tg; t > 0; t -= 0.05) right.push(hp(t));
+    right.push(hp(0));
+    const left = [];
+    for (let t = 0; t > -Math.PI; t -= 0.05) left.push(hp(t));
+    left.push(hp(-Math.PI));
     const tip = leafPoint(1, -0.42);
-    const E = { x: tip.x, y: tip.y - H * 0.13 };
-    const notch = { x: W * 0.52, y: y0 - Math.max(size * 0.9, H * 0.07) };
-    const htop = Math.max(H * 0.05, notch.y - H * 0.12);
-    const tail = smoothPath(
-      [P0, { x: W * 0.95, y: y0 - H * 0.07 }, { x: W * 0.88, y: htop + H * 0.02 }, { x: W * 0.73, y: htop }, { x: W * 0.59, y: htop + H * 0.05 }, notch],
-      [notch, { x: W * 0.52, y: htop + H * 0.035 }, { x: W * 0.43, y: htop }, { x: W * 0.25, y: htop + H * 0.005 },
-        { x: W * 0.08, y: htop + H * 0.09 }, { x: W * 0.06, y: y0 + H * 0.02 }, { x: W * 0.14, y: y0 + H * 0.1 },
-        { x: W * 0.33, y: y0 + H * 0.16 }, { x: E.x - W * 0.01, y: E.y - H * 0.07 }, E],
-    );
-    lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail, E };
+    const bottom = hp(-Math.PI);
+    const E = { x: tip.x, y: Math.max(bottom.y + H * 0.03, tip.y - H * 0.08) };
+    const down = [bottom, { x: (bottom.x + E.x) / 2, y: (bottom.y + E.y) / 2 }, E];
+    const tail = smoothPath(right, left, down);
+    lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail, E, stroke };
   }
   try { document.fonts?.load(`64px "Title Script"`).then(() => { lay = null; }); } catch { /* 書体が読めなくても代わりの字で書く */ }
 
@@ -387,7 +401,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     if (sTail > 0) {
       c.setTransform(D, 0, 0, D, 0, 0);
       c.save(); c.filter = 'blur(1.2px)'; c.strokeStyle = '#fff'; c.lineCap = c.lineJoin = 'round';
-      c.lineWidth = lay.size * 0.045;
+      c.lineWidth = lay.stroke; // 文字の線と同じ太さ
       c.beginPath();
       const pts = lay.tail.pts, upto = sTail * lay.tail.len;
       c.moveTo(pts[0].x, pts[0].y);
@@ -396,7 +410,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       c.stroke(); c.restore();
     }
     // 水玉
-    const R = Math.max(2.2, lay.size * 0.05); // 文字の線の太さくらい
+    const R = Math.max(1.6, lay.stroke * 0.62); // 直径が文字の線の太さくらい
     pen.r = R; pen.st = 1;
     if (done) { pen.a = 0; return; }
     if (w <= 0) {

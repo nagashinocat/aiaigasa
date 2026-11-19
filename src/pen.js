@@ -78,3 +78,12 @@ export function pathAt(path, s) {
   const k = (d - cum[lo]) / (cum[hi] - cum[lo] || 1);
   return { x: pts[lo].x + (pts[hi].x - pts[lo].x) * k, y: pts[lo].y + (pts[hi].y - pts[lo].y) * k };
 }
+
+// きれいなハートの形(上が +y)。t=0 がくぼみ、t=±π が下のとがり、t>0 が右半分
+export function heartPoint(t) {
+  const s = Math.sin(t);
+  return {
+    x: 16 * s * s * s,
+    y: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t),
+  };
+}
