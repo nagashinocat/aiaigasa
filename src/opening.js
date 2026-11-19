@@ -1,9 +1,10 @@
 // オープニング:水滴のついた曇りガラス、すぐ向こうで雨に揺れる葉っぱ、
 // 奥にぼやけた相合傘の二人。ガラスに指で「while it's raining」と書かれていく
 import { GLSL_COMMON, compile } from './rainGL.js';
+import { buildPlan, penAt } from './pen.js';
 
 const TEXT = "while it's raining";
-const WRITE_START = 1.0, WRITE_DUR = 3.2, HINT_AT = WRITE_START + WRITE_DUR + 0.8;
+const WRITE_START = 1.0;
 
 const VS = `attribute vec2 p; varying vec2 v_uv;
 void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
@@ -11,6 +12,7 @@ void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
 const FS = `precision mediump float;
 uniform sampler2D u_scene, u_mask; uniform vec2 u_res; uniform float u_time, u_fade;
 uniform vec2 u_leafBase; uniform float u_leafAng, u_leafLen;
+uniform vec3 u_pen; uniform float u_penA;
 varying vec2 v_uv;
 ${GLSL_COMMON}
 // ガラスの手前の葉っぱ:透過光、葉脈、濡れたつや、水玉
@@ -87,6 +89,24 @@ void main(){
   col += S(.0,.02,-nrm.y)*c*.15;
   // ガラスに当たる光の筋
   col += vec3(.04)*S(.6,1.,1. - abs(v_uv.x - v_uv.y*.4 - .3)*3.);
+  // 文字を書いていく水玉:球の形で奥を屈折させ、上にハイライト、ふちに影
+  if (u_penA > 0.) {
+    vec2 pd = (frag - u_pen.xy)/u_pen.z;
+    pd.y *= .92;
+    float pl = length(pd);
+    if (pl < 1.25) {
+      float z = sqrt(max(0., 1. - pl*pl));
+      vec3 nn = normalize(vec3(pd, z + .001));
+      vec3 refr = texture2D(u_scene, v_uv - nn.xy*u_pen.z/u_res*1.6).rgb;
+      vec3 bead = refr*(.95 + .25*z);
+      bead *= 1. - .45*S(.72, 1., pl);
+      bead += vec3(1.)*pow(max(0., dot(nn, normalize(vec3(-.4,.55,.75)))), 28.)*.9;
+      bead += vec3(.9,.95,1.)*S(.55,.95,pl)*S(1.,.9,pl)*max(0., -pd.y)*.25;
+      float a = S(1.04, .96, pl)*u_penA;
+      col *= 1. - .18*u_penA*S(1.25, 1., length(pd - vec2(.12,-.22)))*S(.95,1.05,pl);
+      col = mix(col, bead, a);
+    }
+  }
   vec4 lf = leafAt(frag);
   col = mix(col, lf.rgb, lf.a);
   gl_FragColor = vec4(col, u_fade);
@@ -142,7 +162,8 @@ export function createOpening(canvas, onDone, { force } = {}) {
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       const u = (n) => gl.getUniformLocation(prog, n);
       U = { scene: u('u_scene'), mask: u('u_mask'), res: u('u_res'), time: u('u_time'), fade: u('u_fade'),
-        leafBase: u('u_leafBase'), leafAng: u('u_leafAng'), leafLen: u('u_leafLen') };
+        leafBase: u('u_leafBase'), leafAng: u('u_leafAng'), leafLen: u('u_leafLen'),
+        pen: u('u_pen'), penA: u('u_penA') };
       gl.uniform1i(U.scene, 0); gl.uniform1i(U.mask, 1);
     }
   } catch (e) { console.warn('opening GL', e); gl = null; }
@@ -151,6 +172,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
   function resize(w, h) {
     W = w; H = h; D = 1; // ぼかした絵なので等倍で十分(軽さ優先)
     backdropReady = false;
+    lay = null;
     for (const c of [canvas, scene, mask, backdrop, tmp, leafCanvas]) { c.width = Math.round(w); c.height = Math.round(h); }
     if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
   }
@@ -274,23 +296,75 @@ export function createOpening(canvas, onDone, { force } = {}) {
   }
 
   // ---- 指で書く文字のマスク ----
-  function drawMask(progress) {
-    const c = mctx;
+  // ---- 文字のレイアウト(書体が読めたら、または画面の大きさが変わったら作り直す) ----
+  const ink = document.createElement('canvas');
+  let lay = null;
+  const pen = { x: 0, y: 0, r: 0, a: 0 };
+  let hintAt = WRITE_START + 5;
+  function layout() {
+    const c = ink.getContext('2d', { willReadFrequently: true });
+    ink.width = Math.round(W * D); ink.height = Math.round(H * D);
     c.setTransform(D, 0, 0, D, 0, 0);
-    c.clearRect(0, 0, W, H);
-    if (progress <= 0) return;
     let size = Math.min(W, H) * 0.24;
-    c.font = `${size}px "Title Script", "Snell Roundhand", "Apple Chancery", cursive`;
+    const fam = '"Title Script", "Snell Roundhand", "Apple Chancery", cursive';
+    c.font = `${size}px ${fam}`;
     const m = c.measureText(TEXT).width;
-    if (m > W * 0.86) { size *= W * 0.86 / m; c.font = c.font.replace(/[\d.]+px/, `${size}px`); }
+    if (m > W * 0.86) { size *= W * 0.86 / m; c.font = `${size}px ${fam}`; }
     const tw = c.measureText(TEXT).width, x0 = (W - tw) / 2, y0 = H * 0.3;
-    c.save();
-    c.beginPath(); c.rect(x0 - 10, 0, (tw + 20) * progress, H); c.clip();
+    const chars = [...TEXT];
+    const letters = chars.map((ch, i) => ({
+      ch, x0: x0 + c.measureText(chars.slice(0, i).join('')).width, x1: x0 + c.measureText(chars.slice(0, i + 1).join('')).width,
+    }));
+    c.clearRect(0, 0, W, H);
     c.filter = 'blur(1.2px)';
     c.fillStyle = c.strokeStyle = '#fff';
-    c.lineWidth = size * 0.045; // 細い書体でも指でなぞった跡が見えるように c.lineJoin = c.lineCap = 'round';
+    c.lineWidth = size * 0.045; // 細い書体でも、水玉が通った跡が見えるように
+    c.lineJoin = c.lineCap = 'round';
     c.strokeText(TEXT, x0, y0); c.fillText(TEXT, x0, y0);
-    c.restore();
+    c.filter = 'none';
+    // 列ごとに、文字の線がある高さの真ん中を調べておく(水玉の通り道)
+    const img = c.getImageData(0, 0, ink.width, ink.height).data;
+    const colY = new Float32Array(Math.ceil(W) + 1).fill(NaN);
+    const top = Math.max(0, Math.floor((y0 - size) * D)), bot = Math.min(ink.height, Math.ceil((y0 + size * 0.5) * D));
+    for (let x = 0; x < colY.length; x++) {
+      const px = Math.min(ink.width - 1, Math.round(x * D));
+      let sum = 0, n = 0;
+      for (let y = top; y < bot; y++) if (img[(y * ink.width + px) * 4 + 3] > 60) { sum += y; n++; }
+      if (n) colY[x] = sum / n / D;
+    }
+    let lastY = y0 - size * 0.3;
+    for (let x = 0; x < colY.length; x++) { if (Number.isNaN(colY[x])) colY[x] = lastY; else lastY = colY[x]; }
+    const plan = buildPlan(letters);
+    hintAt = WRITE_START + plan.total + 0.7;
+    lay = { size, x0, y0, tw, colY, plan, endX: letters[letters.length - 1].x1 };
+  }
+  try { document.fonts?.load(`64px "Title Script"`).then(() => { lay = null; }); } catch { /* 書体が読めなくても代わりの字で書く */ }
+
+  // ---- 水玉が通ったところだけ曇りが取れる ----
+  function drawMask(t) {
+    if (!lay) layout();
+    const c = mctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, mask.width, mask.height);
+    const w = t - WRITE_START;
+    const p = done ? { x: lay.endX, done: true } : penAt(lay.plan, w);
+    if (w > 0 || done) {
+      const front = Math.max(0, Math.min(mask.width, Math.round(p.x * D)));
+      if (front > 0) c.drawImage(ink, 0, 0, front, ink.height, 0, 0, front, ink.height);
+    }
+    // 水玉:書き始める前に上から現れ、書き終えたら下へ流れていく
+    pen.r = lay.size * 0.12;
+    const atX = Math.max(0, Math.min(lay.colY.length - 1, Math.round(p.x)));
+    const y = lay.colY[atX];
+    if (w <= 0 && !done) {
+      const k = Math.max(0, Math.min(1, (w + 0.6) / 0.6));
+      pen.x = lay.x0; pen.y = y - (1 - k) * lay.size * 0.8; pen.a = k;
+    } else if (!p.done || w < lay.plan.total + 0.01) {
+      pen.x = p.x; pen.y = y; pen.a = 1;
+    } else {
+      const fall = Math.max(0, w - lay.plan.total);
+      pen.x = lay.endX; pen.y = y + 260 * fall * fall + 40 * fall; pen.a = Math.max(0, 1 - fall / 1.6);
+    }
   }
 
   function render() {
@@ -305,6 +379,8 @@ export function createOpening(canvas, onDone, { force } = {}) {
       gl.uniform2f(U.leafBase, leafGeom.ax, H - leafGeom.ay);
       gl.uniform1f(U.leafAng, -leafGeom.ang);
       gl.uniform1f(U.leafLen, leafGeom.len);
+      gl.uniform3f(U.pen, pen.x, H - pen.y, pen.r);
+      gl.uniform1f(U.penA, pen.a);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     } else {
       const c = ctx2d;
@@ -317,6 +393,11 @@ export function createOpening(canvas, onDone, { force } = {}) {
       t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, tmp.width, tmp.height);
       t.drawImage(mask, 0, 0); t.globalCompositeOperation = 'source-in'; t.drawImage(scene, 0, 0);
       c.drawImage(tmp, 0, 0);
+      if (pen.a > 0) {
+        const g = c.createRadialGradient(pen.x - pen.r * 0.35, pen.y - pen.r * 0.35, pen.r * 0.1, pen.x, pen.y, pen.r);
+        g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.4, 'rgba(210,225,235,.35)'); g.addColorStop(1, 'rgba(90,105,120,.6)');
+        c.globalAlpha = fade * pen.a; c.fillStyle = g; c.beginPath(); c.arc(pen.x, pen.y, pen.r, 0, 7); c.fill();
+      }
       c.globalAlpha = 1;
     }
   }
@@ -328,7 +409,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     T += dt;
     drawScene(dt);
     drawLeaf(dt);
-    drawMask(done ? 1 : Math.min(1, Math.max(0, (T - WRITE_START) / WRITE_DUR)));
+    drawMask(T);
     if (leaving) {
       fade -= raw / 0.8;
       canvas.style.opacity = leafCanvas.style.opacity = String(Math.max(0, fade));
@@ -350,15 +431,15 @@ export function createOpening(canvas, onDone, { force } = {}) {
     kind: gl ? 'gl' : '2d',
     get time() { return T; },
     get covering() { return running && !leaving; },
-    get ready() { return done || T >= HINT_AT; },
-    get hintAt() { return HINT_AT; },
+    get ready() { return done || T >= hintAt; },
+    get hintAt() { return hintAt; },
     // 書いている途中のタップは書き終わりまで飛ばす。書き終わり後のタップで開始
     tap() {
       if (leaving) return;
-      if (!done && T < HINT_AT) { done = true; T = Math.max(T, HINT_AT); return; }
+      if (!done && T < hintAt) { done = true; T = Math.max(T, hintAt); return; }
       last = performance.now();
       leaving = true;
     },
-    skip() { done = true; T = Math.max(T, HINT_AT); },
+    skip() { done = true; T = Math.max(T, hintAt); },
   };
 }

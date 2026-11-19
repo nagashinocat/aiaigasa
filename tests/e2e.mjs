@@ -134,8 +134,10 @@ try {
       const page = await open(q);
       assert.equal(await page.evaluate(() => window.__game.openingKind), kind);
       await page.waitForTimeout(1000); await shot(page, `40-opening-${kind}-1s`);
-      await page.waitForTimeout(3000); await shot(page, `41-opening-${kind}-4s`);
-      await page.waitForTimeout(2500); await shot(page, `42-opening-${kind}-6s`);
+      await page.waitForTimeout(2200); await shot(page, `41-opening-${kind}-3s`);
+      await page.waitForTimeout(2200); await shot(page, `41b-opening-${kind}-5s`);
+      await page.waitForFunction(() => !document.querySelector('#title .hint').hidden, null, { timeout: 15000 });
+      await page.waitForTimeout(1500); await shot(page, `42-opening-${kind}-done`);
       assert.equal(await page.isVisible('#title .hint'), true);
       await page.mouse.click(195, 420);
       await page.waitForTimeout(1300);
