@@ -279,8 +279,8 @@ export function createOpening(canvas, onDone, { force } = {}) {
     c.setTransform(D, 0, 0, D, 0, 0);
     c.clearRect(0, 0, W, H);
     if (progress <= 0) return;
-    let size = Math.min(W, H) * 0.16;
-    c.font = `italic ${size}px "Snell Roundhand", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive`;
+    let size = Math.min(W, H) * 0.2;
+    c.font = `${size}px "Title Script", "Snell Roundhand", "Apple Chancery", cursive`;
     const m = c.measureText(TEXT).width;
     if (m > W * 0.86) { size *= W * 0.86 / m; c.font = c.font.replace(/[\d.]+px/, `${size}px`); }
     const tw = c.measureText(TEXT).width, x0 = (W - tw) / 2, y0 = H * 0.3;

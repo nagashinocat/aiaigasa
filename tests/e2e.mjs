@@ -39,6 +39,8 @@ const startGame = async (page, id = 'hajimete') => {
 try {
   if (wants('basic')) {
     const page = await open('?rain=2d');
+    assert.equal(await page.title(), "while it's raining");
+    assert.equal(await page.getAttribute('meta[property="og:title"]', 'content'), "while it's raining");
     await shot(page, '01-title');
     await startGame(page);
     assert.equal(await page.evaluate(() => window.__game.mode()), 'play');

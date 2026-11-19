@@ -1,6 +1,8 @@
 // 共有画像:LINEのように左右に並ぶ吹き出し、雨と相合傘、虹、タイトル、URL
 export const CARD = { w: 1080, h: 1920, chatTop: 300, chatBottom: 1300 };
-const TITLE = '絶対に相合傘をやめさせないゲーム';
+const TITLE = "while it's raining";
+const SUBTITLE = '絶対に相合傘をやめさせないゲーム';
+const SCRIPT = '"Title Script", "Snell Roundhand", "Apple Chancery", cursive';
 const FONT = '"Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif';
 
 // 1行に収まるように折り返す。日本語は1文字ずつ、英単語は単語ごと(長すぎる単語は文字で切る)
@@ -75,7 +77,7 @@ export function renderShareCard(canvas, story, { url }) {
   const c = canvas.getContext('2d');
   const measureFor = (size) => { c.font = `${size}px ${FONT}`; return (s) => c.measureText(s).width; };
   const lay = layoutChat(teaserLines(story).map((l) => ({ who: l.who, text: String(l.text).replace(/\n/g, '') })),
-    { width: W, top: 420, bottom: 1240, measureFor });
+    { width: W, top: 400, bottom: 1240, measureFor });
 
   // 雨の空(結末を匂わせる夕焼けや虹は出さない)
   const g = c.createLinearGradient(0, 0, 0, H);
@@ -100,9 +102,10 @@ export function renderShareCard(canvas, story, { url }) {
   // タイトル
   c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillStyle = '#f4f1ea';
   c.shadowColor = 'rgba(0,0,0,.35)'; c.shadowBlur = 16;
-  c.font = `bold 58px ${FONT}`; c.fillText(TITLE, W / 2, 170);
+  c.font = `112px ${SCRIPT}`; c.fillText(TITLE, W / 2, 175);
   c.shadowBlur = 0;
-  c.font = `38px ${FONT}`; c.globalAlpha = 0.85; c.fillText(`― ${story.title} ―`, W / 2, 250); c.globalAlpha = 1;
+  c.font = `30px ${FONT}`; c.globalAlpha = 0.8; c.fillText(SUBTITLE, W / 2, 232);
+  c.font = `38px ${FONT}`; c.globalAlpha = 0.9; c.fillText(`― ${story.title} ―`, W / 2, 300); c.globalAlpha = 1;
 
   // 吹き出し
   for (const b of lay.bubbles) {

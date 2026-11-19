@@ -12,6 +12,7 @@ import { normalizeCustom, encodeStory, decodeStory, storyToInput } from './custo
 import { readHash, storyLink, SITE_URL, prepareShare, shareStory } from './share.js';
 
 const stage = document.getElementById('stage');
+try { document.fonts && document.fonts.load('64px "Title Script"'); } catch { /* 読めなくても筆記体の代わりで描く */ }
 let store = null;
 try { store = window.localStorage; } catch { store = null; }
 const audio = createAudio({ storage: store });

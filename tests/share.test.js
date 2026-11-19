@@ -23,3 +23,10 @@ test('storyLink builds links on the site URL', () => {
   assert.equal(storyLink({ kind: 'builtin', id: 'tenkin' }), SITE_URL + '#story=tenkin');
   assert.equal(storyLink({ kind: 'custom', code: 'abc' }), SITE_URL + '#s=abc');
 });
+
+import { GAME_TITLE, GAME_SUBTITLE } from '../src/share.js';
+test('the game title is "while it\'s raining" and the share text leads with it', () => {
+  assert.equal(GAME_TITLE, "while it's raining");
+  assert.equal(GAME_SUBTITLE, '絶対に相合傘をやめさせないゲーム');
+  assert.ok(shareText('https://x.test/').startsWith("while it's raining"));
+});

@@ -2,6 +2,8 @@
 import { STORIES } from './story.js';
 
 export const SITE_URL = 'https://nagashinocat.github.io/aiaigasa/';
+export const GAME_TITLE = "while it's raining";
+export const GAME_SUBTITLE = '絶対に相合傘をやめさせないゲーム';
 const IDS = new Set(STORIES.map((s) => s.id));
 
 export function readHash(hash) {
@@ -15,7 +17,7 @@ export function readHash(hash) {
 
 export const storyLink = (ref) => SITE_URL + (ref.kind === 'custom' ? `#s=${ref.code}` : `#story=${ref.id}`);
 
-export const shareText = (link) => `この二人の相合傘、守り切れる? #相合傘をやめさせない\n${link}`;
+export const shareText = (link) => `${GAME_TITLE} ☔ この二人の相合傘、守り切れる? #相合傘をやめさせない\n${link}`;
 
 const toBlob = (canvas) => new Promise((res) => canvas.toBlob((b) => res(b), 'image/png'));
 
