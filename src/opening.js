@@ -352,21 +352,14 @@ export function createOpening(canvas, onDone, { force } = {}) {
     for (let x = 0; x < colY.length; x++) { if (Number.isNaN(colY[x])) colY[x] = lastY; else lastY = colY[x]; }
     const plan = buildPlan(letters);
     hintAt = WRITE_START + plan.total + FINALE.end + 0.5;
-    // 最後の g のいちばん下(水の筋の出発点)
+    // 水の筋は、水玉が g を書き終えたところ(ペン先の最後の位置)からそのまま続ける
     const last = letters[letters.length - 1];
-    let gx = last.x1 - 4, gy = y0;
-    for (let x = Math.floor(last.x0); x <= Math.ceil(last.x1); x++) {
-      const px = Math.min(ink.width - 1, Math.round(x * D));
-      for (let y = bot - 1; y >= top; y--) {
-        if (img[(y * ink.width + px) * 4 + 3] > 60) { if (y / D > gy) { gy = y / D; gx = x; } break; }
-      }
-    }
-    // 葉っぱ(止まっているとき)の、落ちる場所の真上で筋が終わる
-    const land = leafPoint(0.58, -0.42);
-    const E = { x: land.x, y: land.y - H * 0.1 };
-    const P0 = { x: gx, y: gy - 2 };
-    const C1 = { x: P0.x + W * 0.03, y: P0.y + H * 0.14 };
-    const C2 = { x: E.x + W * 0.22, y: E.y - H * 0.14 };
+    const P0 = { x: last.x1, y: colY[Math.min(colY.length - 1, Math.round(last.x1))] };
+    // 葉っぱの先(止まっているとき)の真上で筋が終わる
+    const tip = leafPoint(1, -0.42);
+    const E = { x: tip.x, y: tip.y - H * 0.11 };
+    const C1 = { x: P0.x + W * 0.02, y: P0.y + H * 0.12 };
+    const C2 = { x: E.x + W * 0.14, y: E.y - H * 0.1 };
     lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail: [P0, C1, C2, E] };
   }
   try { document.fonts?.load(`64px "Title Script"`).then(() => { lay = null; }); } catch { /* 書体が読めなくても代わりの字で書く */ }
@@ -396,7 +389,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       c.stroke(); c.restore();
     }
     // 水玉
-    const R = Math.max(lay.size * 0.17, W * 0.04); // ガラスの水滴らしい大きさ
+    const R = Math.max(lay.size * 0.11, W * 0.022); // ガラスの小さめの水滴くらい
     pen.r = R; pen.st = 1;
     if (done) { pen.a = 0; return; }
     if (w <= 0) {
@@ -412,7 +405,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       pen.x = E.x; pen.y = E.y + R * 0.25 * f.k; pen.a = 1;
       pen.r = R * (1 + 0.28 * f.k); pen.st = 1.12 + 0.12 * f.k + 0.05 * Math.sin(f.k * 24);
     } else if (f.phase === 'fall') {
-      const E = lay.tail[3], L = leafPoint(0.58, leafGeom.ang);
+      const E = lay.tail[3], L = leafPoint(1, leafGeom.ang);
       pen.x = E.x + (L.x - E.x) * f.k; pen.y = E.y + (L.y - pen.r * 0.6 - E.y) * f.k;
       pen.r = R * 1.28; pen.st = 1.3; pen.a = 1;
     } else {
@@ -420,7 +413,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       if (!landed) {
         landed = true;
         leaf.vel += 3.4;
-        for (let i = 0; i < 4; i++) leaf.splashes.push({ s: 0.56 + i * 0.015, a: 1.2 });
+        for (let i = 0; i < 4; i++) leaf.splashes.push({ s: 0.94 + i * 0.012, a: 1.2 });
         leaf.drip += 0.4;
       }
       pen.a = 0;
