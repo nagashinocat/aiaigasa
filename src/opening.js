@@ -1,7 +1,7 @@
 // オープニング:水滴のついた曇りガラス、すぐ向こうで雨に揺れる葉っぱ、
 // 奥にぼやけた相合傘の二人。ガラスに指で「while it's raining」と書かれていく
 import { GLSL_COMMON, compile } from './rainGL.js';
-import { buildPlan, penAt } from './pen.js';
+import { buildPlan, penAt, finaleAt, FINALE } from './pen.js';
 
 const TEXT = "while it's raining";
 const WRITE_START = 1.0;
@@ -12,7 +12,7 @@ void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
 const FS = `precision mediump float;
 uniform sampler2D u_scene, u_mask; uniform vec2 u_res; uniform float u_time, u_fade;
 uniform vec2 u_leafBase; uniform float u_leafAng, u_leafLen;
-uniform vec3 u_pen; uniform float u_penA;
+uniform vec3 u_pen; uniform float u_penA, u_penS;
 varying vec2 v_uv;
 ${GLSL_COMMON}
 // ガラスの手前の葉っぱ:透過光、葉脈、濡れたつや、水玉
@@ -89,26 +89,31 @@ void main(){
   col += S(.0,.02,-nrm.y)*c*.15;
   // ガラスに当たる光の筋
   col += vec3(.04)*S(.6,1.,1. - abs(v_uv.x - v_uv.y*.4 - .3)*3.);
-  // 文字を書いていく水玉:球の形で奥を屈折させ、上にハイライト、ふちに影
+  vec4 lf = leafAt(frag);
+  col = mix(col, lf.rgb, lf.a);
+  // 水玉:レンズのように奥を上下逆さに映し、ふちは暗く、上に鋭い光、下に集まった光、ガラスに薄い影
   if (u_penA > 0.) {
     vec2 pd = (frag - u_pen.xy)/u_pen.z;
-    pd.y *= .92;
+    pd.y /= u_penS;
+    pd.y += .12*(u_penS - 1.)*(1. - pd.y*pd.y); // 下がふくらんだしずくの形
     float pl = length(pd);
-    if (pl < 1.25) {
+    // 影(右下にずれて落ちる)
+    float sh = S(1.35, .9, length((frag - u_pen.xy)/u_pen.z - vec2(.16, -.3)));
+    col *= 1. - .22*u_penA*sh*S(.92, 1.02, pl);
+    if (pl < 1.) {
       float z = sqrt(max(0., 1. - pl*pl));
-      vec3 nn = normalize(vec3(pd, z + .001));
-      vec3 refr = texture2D(u_scene, v_uv - nn.xy*u_pen.z/u_res*1.6).rgb;
-      vec3 bead = refr*(.95 + .25*z);
-      bead *= 1. - .45*S(.72, 1., pl);
-      bead += vec3(1.)*pow(max(0., dot(nn, normalize(vec3(-.4,.55,.75)))), 28.)*.9;
-      bead += vec3(.9,.95,1.)*S(.55,.95,pl)*S(1.,.9,pl)*max(0., -pd.y)*.25;
-      float a = S(1.04, .96, pl)*u_penA;
-      col *= 1. - .18*u_penA*S(1.25, 1., length(pd - vec2(.12,-.22)))*S(.95,1.05,pl);
+      vec2 lens = -pd*u_pen.z*(1.6 + .6*z)/u_res;
+      vec3 refr = texture2D(u_scene, u_pen.xy/u_res + lens).rgb;
+      vec3 bead = refr*1.08;
+      float rim = S(.55, 1., pl);
+      bead = mix(bead, vec3(.08,.1,.13), .62*pow(rim, 1.6));
+      bead += vec3(1.)*exp(-dot(pd - vec2(-.34,.42), pd - vec2(-.34,.42))*55.)*.95;
+      bead += vec3(1.)*exp(-dot(pd - vec2(-.18,.2), pd - vec2(-.18,.2))*14.)*.12;
+      bead += vec3(1.,.98,.94)*S(.42,.82,pl)*S(1.,.86,pl)*S(.1,.7,-pd.y)*.42;
+      float a = S(1., .955, pl)*u_penA;
       col = mix(col, bead, a);
     }
   }
-  vec4 lf = leafAt(frag);
-  col = mix(col, lf.rgb, lf.a);
   gl_FragColor = vec4(col, u_fade);
 }`;
 
@@ -163,7 +168,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       const u = (n) => gl.getUniformLocation(prog, n);
       U = { scene: u('u_scene'), mask: u('u_mask'), res: u('u_res'), time: u('u_time'), fade: u('u_fade'),
         leafBase: u('u_leafBase'), leafAng: u('u_leafAng'), leafLen: u('u_leafLen'),
-        pen: u('u_pen'), penA: u('u_penA') };
+        pen: u('u_pen'), penA: u('u_penA'), penS: u('u_penS') };
       gl.uniform1i(U.scene, 0); gl.uniform1i(U.mask, 1);
     }
   } catch (e) { console.warn('opening GL', e); gl = null; }
@@ -299,8 +304,19 @@ export function createOpening(canvas, onDone, { force } = {}) {
   // ---- 文字のレイアウト(書体が読めたら、または画面の大きさが変わったら作り直す) ----
   const ink = document.createElement('canvas');
   let lay = null;
-  const pen = { x: 0, y: 0, r: 0, a: 0 };
+  const pen = { x: 0, y: 0, r: 0, a: 0, st: 1 };
   let hintAt = WRITE_START + 5;
+  // 葉の上の点(付け根から長さの u 倍のところ)
+  function leafPoint(u, ang) {
+    const len = W * 0.62, ax = -W * 0.08, ay = H * 0.86;
+    return { x: ax + Math.cos(ang) * len * u, y: ay + Math.sin(ang) * len * u - len * 0.01 };
+  }
+  const bez = (P, t) => {
+    const m = 1 - t;
+    return { x: m * m * m * P[0].x + 3 * m * m * t * P[1].x + 3 * m * t * t * P[2].x + t * t * t * P[3].x,
+      y: m * m * m * P[0].y + 3 * m * m * t * P[1].y + 3 * m * t * t * P[2].y + t * t * t * P[3].y };
+  };
+  let landed = false;
   function layout() {
     const c = ink.getContext('2d', { willReadFrequently: true });
     ink.width = Math.round(W * D); ink.height = Math.round(H * D);
@@ -335,8 +351,23 @@ export function createOpening(canvas, onDone, { force } = {}) {
     let lastY = y0 - size * 0.3;
     for (let x = 0; x < colY.length; x++) { if (Number.isNaN(colY[x])) colY[x] = lastY; else lastY = colY[x]; }
     const plan = buildPlan(letters);
-    hintAt = WRITE_START + plan.total + 0.7;
-    lay = { size, x0, y0, tw, colY, plan, endX: letters[letters.length - 1].x1 };
+    hintAt = WRITE_START + plan.total + FINALE.end + 0.5;
+    // 最後の g のいちばん下(水の筋の出発点)
+    const last = letters[letters.length - 1];
+    let gx = last.x1 - 4, gy = y0;
+    for (let x = Math.floor(last.x0); x <= Math.ceil(last.x1); x++) {
+      const px = Math.min(ink.width - 1, Math.round(x * D));
+      for (let y = bot - 1; y >= top; y--) {
+        if (img[(y * ink.width + px) * 4 + 3] > 60) { if (y / D > gy) { gy = y / D; gx = x; } break; }
+      }
+    }
+    // 葉っぱ(止まっているとき)の、落ちる場所の真上で筋が終わる
+    const land = leafPoint(0.58, -0.42);
+    const E = { x: land.x, y: land.y - H * 0.1 };
+    const P0 = { x: gx, y: gy - 2 };
+    const C1 = { x: P0.x + W * 0.03, y: P0.y + H * 0.14 };
+    const C2 = { x: E.x + W * 0.22, y: E.y - H * 0.14 };
+    lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail: [P0, C1, C2, E] };
   }
   try { document.fonts?.load(`64px "Title Script"`).then(() => { lay = null; }); } catch { /* 書体が読めなくても代わりの字で書く */ }
 
@@ -348,22 +379,51 @@ export function createOpening(canvas, onDone, { force } = {}) {
     c.clearRect(0, 0, mask.width, mask.height);
     const w = t - WRITE_START;
     const p = done ? { x: lay.endX, done: true } : penAt(lay.plan, w);
+    const f = done ? { phase: 'landed', s: 1, k: 1, since: 9 } : finaleAt(w, lay.plan.total);
     if (w > 0 || done) {
       const front = Math.max(0, Math.min(mask.width, Math.round(p.x * D)));
       if (front > 0) c.drawImage(ink, 0, 0, front, ink.height, 0, 0, front, ink.height);
     }
-    // 水玉:書き始める前に上から現れ、書き終えたら下へ流れていく
-    pen.r = lay.size * 0.12;
-    const atX = Math.max(0, Math.min(lay.colY.length - 1, Math.round(p.x)));
-    const y = lay.colY[atX];
-    if (w <= 0 && !done) {
+    // g から伸びる水の筋
+    const sTail = f.phase === 'write' ? 0 : f.s;
+    if (sTail > 0) {
+      c.setTransform(D, 0, 0, D, 0, 0);
+      c.save(); c.filter = 'blur(1.2px)'; c.strokeStyle = '#fff'; c.lineCap = c.lineJoin = 'round';
+      c.lineWidth = lay.size * 0.05;
+      c.beginPath();
+      const N = 40;
+      for (let i = 0; i <= N; i++) { const q = bez(lay.tail, (sTail * i) / N); if (i) c.lineTo(q.x, q.y); else c.moveTo(q.x, q.y); }
+      c.stroke(); c.restore();
+    }
+    // 水玉
+    const R = Math.max(lay.size * 0.17, W * 0.04); // ガラスの水滴らしい大きさ
+    pen.r = R; pen.st = 1;
+    if (done) { pen.a = 0; return; }
+    if (w <= 0) {
       const k = Math.max(0, Math.min(1, (w + 0.6) / 0.6));
-      pen.x = lay.x0; pen.y = y - (1 - k) * lay.size * 0.8; pen.a = k;
-    } else if (!p.done || w < lay.plan.total + 0.01) {
-      pen.x = p.x; pen.y = y; pen.a = 1;
+      pen.x = lay.x0; pen.y = lay.colY[Math.max(0, Math.round(lay.x0))] - (1 - k) * lay.size * 0.8; pen.a = k;
+    } else if (f.phase === 'write') {
+      pen.x = p.x; pen.y = lay.colY[Math.max(0, Math.min(lay.colY.length - 1, Math.round(p.x)))]; pen.a = 1;
+      pen.st = p.writing ? 1.06 : 1;
+    } else if (f.phase === 'tail') {
+      const q = bez(lay.tail, f.s); pen.x = q.x; pen.y = q.y; pen.a = 1; pen.st = 1.1 + f.s * 0.15;
+    } else if (f.phase === 'hang') {
+      const E = lay.tail[3];
+      pen.x = E.x; pen.y = E.y + R * 0.25 * f.k; pen.a = 1;
+      pen.r = R * (1 + 0.28 * f.k); pen.st = 1.12 + 0.12 * f.k + 0.05 * Math.sin(f.k * 24);
+    } else if (f.phase === 'fall') {
+      const E = lay.tail[3], L = leafPoint(0.58, leafGeom.ang);
+      pen.x = E.x + (L.x - E.x) * f.k; pen.y = E.y + (L.y - pen.r * 0.6 - E.y) * f.k;
+      pen.r = R * 1.28; pen.st = 1.3; pen.a = 1;
     } else {
-      const fall = Math.max(0, w - lay.plan.total);
-      pen.x = lay.endX; pen.y = y + 260 * fall * fall + 40 * fall; pen.a = Math.max(0, 1 - fall / 1.6);
+      // ぽたん:葉が大きくしなって、しぶきが跳ねる
+      if (!landed) {
+        landed = true;
+        leaf.vel += 3.4;
+        for (let i = 0; i < 4; i++) leaf.splashes.push({ s: 0.56 + i * 0.015, a: 1.2 });
+        leaf.drip += 0.4;
+      }
+      pen.a = 0;
     }
   }
 
@@ -381,6 +441,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       gl.uniform1f(U.leafLen, leafGeom.len);
       gl.uniform3f(U.pen, pen.x, H - pen.y, pen.r);
       gl.uniform1f(U.penA, pen.a);
+      gl.uniform1f(U.penS, pen.st || 1);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     } else {
       const c = ctx2d;
@@ -402,9 +463,15 @@ export function createOpening(canvas, onDone, { force } = {}) {
     }
   }
 
+  let paused = false;
   function frame(now) {
     if (!running) return;
     const raw = Math.max(0, (now - last) / 1000 || 0); last = now;
+    if (paused) { raf = requestAnimationFrame(frame); return; }
+    tick(raw);
+  }
+  // 撮影用:止めて1コマずつ進められる
+  function tick(raw) {
     const dt = Math.min(0.1, raw);
     T += dt;
     drawScene(dt);
@@ -416,11 +483,11 @@ export function createOpening(canvas, onDone, { force } = {}) {
       if (fade <= 0) { stop(); onDone(); return; }
     }
     render();
-    raf = requestAnimationFrame(frame);
+    if (!paused) raf = requestAnimationFrame(frame);
   }
 
   function start() {
-    running = true; T = 0; fade = 1; leaving = false; done = false;
+    running = true; T = 0; fade = 1; leaving = false; done = false; landed = false;
     canvas.style.opacity = leafCanvas.style.opacity = '1'; canvas.hidden = leafCanvas.hidden = false;
     last = performance.now(); raf = requestAnimationFrame(frame);
   }
@@ -441,5 +508,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
       leaving = true;
     },
     skip() { done = true; T = Math.max(T, hintAt); },
+    debugPause() { paused = true; },
+    debugStep(dt) { if (running) tick(dt); },
   };
 }

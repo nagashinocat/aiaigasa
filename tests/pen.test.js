@@ -40,3 +40,35 @@ test('a realistic title takes a few seconds', () => {
   const plan = buildPlan(ls);
   assert.ok(plan.total > 3 && plan.total < 7, String(plan.total));
 });
+
+import { finaleAt, FINALE } from '../src/pen.js';
+test('after writing: tail down from the g, hang, fall, then land on the leaf', () => {
+  const total = 4;
+  const at = (w) => finaleAt(w, total);
+  assert.equal(at(2).phase, 'write');
+  assert.equal(at(total + 0.01).phase, 'tail');
+  assert.equal(at(total + FINALE.tail + 0.01).phase, 'hang');
+  assert.equal(at(total + FINALE.tail + FINALE.hang + 0.01).phase, 'fall');
+  assert.equal(at(total + FINALE.tail + FINALE.hang + FINALE.fall + 0.01).phase, 'landed');
+  assert.ok(Math.abs(FINALE.end - (FINALE.tail + FINALE.hang + FINALE.fall)) < 1e-9);
+});
+
+test('tail progress runs 0 to 1 and speeds up like water running down', () => {
+  let last = -1, firstStep = null, lastStep = null;
+  const N = 20;
+  for (let i = 0; i <= N; i++) {
+    const s = finaleAt(4 + (FINALE.tail * i) / N, 4).s;
+    if (i === 1) firstStep = s - last;
+    if (i === N) lastStep = s - last;
+    assert.ok(s >= last); last = s;
+  }
+  assert.ok(Math.abs(last - 1) < 1e-6);
+  assert.ok(lastStep > firstStep);
+});
+
+test('fall progress goes 0 to 1 and the drop has landed afterwards', () => {
+  const t0 = 4 + FINALE.tail + FINALE.hang;
+  assert.ok(finaleAt(t0 + 0.001, 4).k < 0.05);
+  assert.ok(finaleAt(t0 + FINALE.fall - 0.001, 4).k > 0.95);
+  assert.equal(finaleAt(t0 + FINALE.fall + 1, 4).since > 0.9, true);
+});

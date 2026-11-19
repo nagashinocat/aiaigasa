@@ -29,3 +29,21 @@ export function penAt(plan, t) {
   }
   return { x: segs[segs.length - 1].x1, index: segs.length - 1, writing: false, done: t >= plan.total };
 }
+
+// 書き終えたあと:g の線が水の筋になって伸び(tail)、筋の先でためて(hang)、葉っぱへ落ちる(fall)
+export const FINALE = { tail: 1.5, hang: 0.45, fall: 0.38, end: 1.5 + 0.45 + 0.38 };
+
+export function finaleAt(w, total) {
+  const t = w - total;
+  if (t < 0) return { phase: 'write' };
+  if (t < FINALE.tail) {
+    const u = t / FINALE.tail;
+    return { phase: 'tail', s: u * u * 0.55 + u * 0.45 }; // だんだん速く流れる
+  }
+  if (t < FINALE.tail + FINALE.hang) return { phase: 'hang', s: 1, k: (t - FINALE.tail) / FINALE.hang };
+  if (t < FINALE.end) {
+    const u = (t - FINALE.tail - FINALE.hang) / FINALE.fall;
+    return { phase: 'fall', s: 1, k: u * u }; // 重力で落ちる
+  }
+  return { phase: 'landed', s: 1, k: 1, since: t - FINALE.end };
+}

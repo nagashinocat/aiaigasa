@@ -49,6 +49,7 @@ const hint = document.querySelector('#title .hint');
 window.__debugSkipOpening = () => opening.skip();
 window.__debugHideOpening = () => opening.stop();
 window.__debugChoose = () => chooseStory();
+window.__debugOpening = { pause: () => opening.debugPause(), step: (dt) => opening.debugStep(dt) };
 window.__debugCard = (id) => {
   const st = id === 'longest'
     ? normalizeCustom({ title: 'いちばん長い物語', lines: Array.from({ length: 15 }, (_, i) => ({ who: i % 2 ? 'he' : 'she', text: 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ' })), ask: 'あ'.repeat(40), answer: 'Hello, see you tomorrow! また明日☔' }).story
