@@ -147,9 +147,17 @@ ui.onShare(() => {
 ui.onRetry(startGame);
 ui.onChoose(chooseStory);
 
+// 撮影用:__debugPause() で止め、__debugTick(dt) で1コマずつ進める
+let paused = false;
+window.__debugPause = () => { paused = true; };
+window.__debugTick = (dt) => update(dt);
 function frame(now) {
   const dt = (now - last) / 1000;
   last = now;
+  if (!paused) update(dt);
+  requestAnimationFrame(frame);
+}
+function update(dt) {
   if (mode === 'play') {
     const climax = isClimax(story, state.doki);
     state = step(state, dt, input.pressing(), climax, story.tune);
@@ -168,7 +176,6 @@ function frame(now) {
     rain.draw(v.rain, Math.min(dt, 0.1), view.t, v);
     game.rainFrames++;
   }
-  requestAnimationFrame(frame);
 }
 ui.showTitle();
 opening.start();
