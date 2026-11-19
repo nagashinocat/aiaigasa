@@ -31,7 +31,7 @@ export function penAt(plan, t) {
 }
 
 // 書き終えたあと:g の線が水の筋になって伸び(tail)、筋の先でためて(hang)、葉っぱへ落ちる(fall)
-export const FINALE = { tail: 3.6, hang: 0.45, fall: 0.42, end: 3.6 + 0.45 + 0.42 };
+export const FINALE = { tail: 0.15, hang: 0.55, fall: 0.6, end: 0.15 + 0.55 + 0.6 };
 
 export function finaleAt(w, total) {
   const t = w - total;
