@@ -279,7 +279,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     c.setTransform(D, 0, 0, D, 0, 0);
     c.clearRect(0, 0, W, H);
     if (progress <= 0) return;
-    let size = Math.min(W, H) * 0.2;
+    let size = Math.min(W, H) * 0.24;
     c.font = `${size}px "Title Script", "Snell Roundhand", "Apple Chancery", cursive`;
     const m = c.measureText(TEXT).width;
     if (m > W * 0.86) { size *= W * 0.86 / m; c.font = c.font.replace(/[\d.]+px/, `${size}px`); }
@@ -288,7 +288,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     c.beginPath(); c.rect(x0 - 10, 0, (tw + 20) * progress, H); c.clip();
     c.filter = 'blur(1.2px)';
     c.fillStyle = c.strokeStyle = '#fff';
-    c.lineWidth = size * 0.03; c.lineJoin = c.lineCap = 'round';
+    c.lineWidth = size * 0.045; // 細い書体でも指でなぞった跡が見えるように c.lineJoin = c.lineCap = 'round';
     c.strokeText(TEXT, x0, y0); c.fillText(TEXT, x0, y0);
     c.restore();
   }

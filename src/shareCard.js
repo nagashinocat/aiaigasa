@@ -77,7 +77,7 @@ export function renderShareCard(canvas, story, { url }) {
   const c = canvas.getContext('2d');
   const measureFor = (size) => { c.font = `${size}px ${FONT}`; return (s) => c.measureText(s).width; };
   const lay = layoutChat(teaserLines(story).map((l) => ({ who: l.who, text: String(l.text).replace(/\n/g, '') })),
-    { width: W, top: 400, bottom: 1240, measureFor });
+    { width: W, top: 410, bottom: 1240, measureFor });
 
   // 雨の空(結末を匂わせる夕焼けや虹は出さない)
   const g = c.createLinearGradient(0, 0, 0, H);
@@ -102,10 +102,10 @@ export function renderShareCard(canvas, story, { url }) {
   // タイトル
   c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillStyle = '#f4f1ea';
   c.shadowColor = 'rgba(0,0,0,.35)'; c.shadowBlur = 16;
-  c.font = `112px ${SCRIPT}`; c.fillText(TITLE, W / 2, 175);
+  c.font = `130px ${SCRIPT}`; c.fillText(TITLE, W / 2, 178);
   c.shadowBlur = 0;
-  c.font = `30px ${FONT}`; c.globalAlpha = 0.8; c.fillText(SUBTITLE, W / 2, 232);
-  c.font = `38px ${FONT}`; c.globalAlpha = 0.9; c.fillText(`― ${story.title} ―`, W / 2, 300); c.globalAlpha = 1;
+  c.font = `30px ${FONT}`; c.globalAlpha = 0.8; c.fillText(SUBTITLE, W / 2, 262);
+  c.font = `38px ${FONT}`; c.globalAlpha = 0.9; c.fillText(`― ${story.title} ―`, W / 2, 325); c.globalAlpha = 1;
 
   // 吹き出し
   for (const b of lay.bubbles) {
