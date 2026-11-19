@@ -72,3 +72,19 @@ test('fall progress goes 0 to 1 and the drop has landed afterwards', () => {
   assert.ok(finaleAt(t0 + FINALE.fall - 0.001, 4).k > 0.95);
   assert.equal(finaleAt(t0 + FINALE.fall + 1, 4).since > 0.9, true);
 });
+
+import { smoothPath, pathAt } from '../src/pen.js';
+test('smoothPath passes through its points and pathAt walks it by length', () => {
+  const poly = smoothPath([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 200, y: 0 }]);
+  assert.deepEqual(pathAt(poly, 0), { x: 0, y: 0 });
+  const end = pathAt(poly, 1);
+  assert.ok(Math.abs(end.x - 200) < 1e-6 && Math.abs(end.y) < 1e-6);
+  assert.ok(Math.abs(pathAt(poly, 0.5).x - 100) < 2);
+});
+
+test('smoothPath can join pieces with a sharp corner (the dent of the heart)', () => {
+  const poly = smoothPath([{ x: 0, y: 100 }, { x: 50, y: 50 }, { x: 100, y: 100 }], [{ x: 100, y: 100 }, { x: 100, y: 0 }]);
+  // 角(100,100)を通る
+  assert.ok(poly.pts.some((p) => Math.abs(p.x - 100) < 1e-6 && Math.abs(p.y - 100) < 1e-6));
+  assert.ok(poly.len > 200);
+});

@@ -31,14 +31,14 @@ export function penAt(plan, t) {
 }
 
 // 書き終えたあと:g の線が水の筋になって伸び(tail)、筋の先でためて(hang)、葉っぱへ落ちる(fall)
-export const FINALE = { tail: 1.5, hang: 0.45, fall: 0.38, end: 1.5 + 0.45 + 0.38 };
+export const FINALE = { tail: 3.6, hang: 0.45, fall: 0.42, end: 3.6 + 0.45 + 0.42 };
 
 export function finaleAt(w, total) {
   const t = w - total;
   if (t < 0) return { phase: 'write' };
   if (t < FINALE.tail) {
     const u = t / FINALE.tail;
-    return { phase: 'tail', s: u * u * 0.55 + u * 0.45 }; // だんだん速く流れる
+    return { phase: 'tail', s: u * 0.8 + u * u * 0.2 }; // ほぼ一定で、最後は少し速く流れ落ちる
   }
   if (t < FINALE.tail + FINALE.hang) return { phase: 'hang', s: 1, k: (t - FINALE.tail) / FINALE.hang };
   if (t < FINALE.end) {
@@ -46,4 +46,35 @@ export function finaleAt(w, total) {
     return { phase: 'fall', s: 1, k: u * u }; // 重力で落ちる
   }
   return { phase: 'landed', s: 1, k: 1, since: t - FINALE.end };
+}
+
+// なめらかな道(Catmull-Rom)。引数ごとに1本の曲線で、つなぎ目は角になる(ハートのくぼみ用)
+export function smoothPath(...pieces) {
+  const pts = [];
+  for (const P of pieces) {
+    for (let i = 0; i < P.length - 1; i++) {
+      const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+      const N = 24;
+      for (let k = (pts.length ? 1 : 0); k <= N; k++) {
+        const t = k / N, t2 = t * t, t3 = t2 * t;
+        const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+        pts.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+      }
+    }
+  }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  return { pts, cum, len: cum[cum.length - 1] };
+}
+
+// 道の長さの s 割(0〜1)の地点
+export function pathAt(path, s) {
+  const { pts, cum, len } = path;
+  if (s <= 0) return { x: pts[0].x, y: pts[0].y };
+  if (s >= 1) return { x: pts[pts.length - 1].x, y: pts[pts.length - 1].y };
+  const d = s * len;
+  let lo = 0, hi = cum.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] < d) lo = m; else hi = m; }
+  const k = (d - cum[lo]) / (cum[hi] - cum[lo] || 1);
+  return { x: pts[lo].x + (pts[hi].x - pts[lo].x) * k, y: pts[lo].y + (pts[hi].y - pts[lo].y) * k };
 }

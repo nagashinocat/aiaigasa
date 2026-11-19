@@ -1,7 +1,7 @@
 // オープニング:水滴のついた曇りガラス、すぐ向こうで雨に揺れる葉っぱ、
 // 奥にぼやけた相合傘の二人。ガラスに指で「while it's raining」と書かれていく
 import { GLSL_COMMON, compile } from './rainGL.js';
-import { buildPlan, penAt, finaleAt, FINALE } from './pen.js';
+import { buildPlan, penAt, finaleAt, FINALE, smoothPath, pathAt } from './pen.js';
 
 const TEXT = "while it's raining";
 const WRITE_START = 1.0;
@@ -325,7 +325,7 @@ export function createOpening(canvas, onDone, { force } = {}) {
     const fam = '"Title Script", "Snell Roundhand", "Apple Chancery", cursive';
     c.font = `${size}px ${fam}`;
     const m = c.measureText(TEXT).width;
-    if (m > W * 0.86) { size *= W * 0.86 / m; c.font = `${size}px ${fam}`; }
+    if (m > W * 0.74) { size *= W * 0.74 / m; c.font = `${size}px ${fam}`; } // まわりにハートを描く余白
     const tw = c.measureText(TEXT).width, x0 = (W - tw) / 2, y0 = H * 0.3;
     const chars = [...TEXT];
     const letters = chars.map((ch, i) => ({
@@ -352,15 +352,20 @@ export function createOpening(canvas, onDone, { force } = {}) {
     for (let x = 0; x < colY.length; x++) { if (Number.isNaN(colY[x])) colY[x] = lastY; else lastY = colY[x]; }
     const plan = buildPlan(letters);
     hintAt = WRITE_START + plan.total + FINALE.end + 0.5;
-    // 水の筋は、水玉が g を書き終えたところ(ペン先の最後の位置)からそのまま続ける
+    // 水の筋:g を書き終えたところから、タイトルをハートで囲み、ハートの下から葉っぱの先の真上まで流れる
     const last = letters[letters.length - 1];
     const P0 = { x: last.x1, y: colY[Math.min(colY.length - 1, Math.round(last.x1))] };
-    // 葉っぱの先(止まっているとき)の真上で筋が終わる
     const tip = leafPoint(1, -0.42);
-    const E = { x: tip.x, y: tip.y - H * 0.11 };
-    const C1 = { x: P0.x + W * 0.02, y: P0.y + H * 0.12 };
-    const C2 = { x: E.x + W * 0.14, y: E.y - H * 0.1 };
-    lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail: [P0, C1, C2, E] };
+    const E = { x: tip.x, y: tip.y - H * 0.13 };
+    const notch = { x: W * 0.52, y: y0 - Math.max(size * 0.9, H * 0.07) };
+    const htop = Math.max(H * 0.05, notch.y - H * 0.12);
+    const tail = smoothPath(
+      [P0, { x: W * 0.95, y: y0 - H * 0.07 }, { x: W * 0.88, y: htop + H * 0.02 }, { x: W * 0.73, y: htop }, { x: W * 0.59, y: htop + H * 0.05 }, notch],
+      [notch, { x: W * 0.52, y: htop + H * 0.035 }, { x: W * 0.43, y: htop }, { x: W * 0.25, y: htop + H * 0.005 },
+        { x: W * 0.08, y: htop + H * 0.09 }, { x: W * 0.06, y: y0 + H * 0.02 }, { x: W * 0.14, y: y0 + H * 0.1 },
+        { x: W * 0.33, y: y0 + H * 0.16 }, { x: E.x - W * 0.01, y: E.y - H * 0.07 }, E],
+    );
+    lay = { size, x0, y0, tw, colY, plan, endX: last.x1, tail, E };
   }
   try { document.fonts?.load(`64px "Title Script"`).then(() => { lay = null; }); } catch { /* 書体が読めなくても代わりの字で書く */ }
 
@@ -382,14 +387,16 @@ export function createOpening(canvas, onDone, { force } = {}) {
     if (sTail > 0) {
       c.setTransform(D, 0, 0, D, 0, 0);
       c.save(); c.filter = 'blur(1.2px)'; c.strokeStyle = '#fff'; c.lineCap = c.lineJoin = 'round';
-      c.lineWidth = lay.size * 0.05;
+      c.lineWidth = lay.size * 0.045;
       c.beginPath();
-      const N = 40;
-      for (let i = 0; i <= N; i++) { const q = bez(lay.tail, (sTail * i) / N); if (i) c.lineTo(q.x, q.y); else c.moveTo(q.x, q.y); }
+      const pts = lay.tail.pts, upto = sTail * lay.tail.len;
+      c.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length && lay.tail.cum[i] <= upto; i++) c.lineTo(pts[i].x, pts[i].y);
+      const q = pathAt(lay.tail, sTail); c.lineTo(q.x, q.y);
       c.stroke(); c.restore();
     }
     // 水玉
-    const R = Math.max(lay.size * 0.11, W * 0.022); // ガラスの小さめの水滴くらい
+    const R = Math.max(2.2, lay.size * 0.05); // 文字の線の太さくらい
     pen.r = R; pen.st = 1;
     if (done) { pen.a = 0; return; }
     if (w <= 0) {
@@ -399,15 +406,15 @@ export function createOpening(canvas, onDone, { force } = {}) {
       pen.x = p.x; pen.y = lay.colY[Math.max(0, Math.min(lay.colY.length - 1, Math.round(p.x)))]; pen.a = 1;
       pen.st = p.writing ? 1.06 : 1;
     } else if (f.phase === 'tail') {
-      const q = bez(lay.tail, f.s); pen.x = q.x; pen.y = q.y; pen.a = 1; pen.st = 1.1 + f.s * 0.15;
+      const q = pathAt(lay.tail, f.s); pen.x = q.x; pen.y = q.y; pen.a = 1; pen.st = 1.1;
     } else if (f.phase === 'hang') {
-      const E = lay.tail[3];
+      const E = lay.E;
       pen.x = E.x; pen.y = E.y + R * 0.25 * f.k; pen.a = 1;
       pen.r = R * (1 + 0.28 * f.k); pen.st = 1.12 + 0.12 * f.k + 0.05 * Math.sin(f.k * 24);
     } else if (f.phase === 'fall') {
-      const E = lay.tail[3], L = leafPoint(1, leafGeom.ang);
+      const E = lay.E, L = leafPoint(1, leafGeom.ang);
       pen.x = E.x + (L.x - E.x) * f.k; pen.y = E.y + (L.y - pen.r * 0.6 - E.y) * f.k;
-      pen.r = R * 1.28; pen.st = 1.3; pen.a = 1;
+      pen.r = R * 1.28; pen.st = 1.6; pen.a = 1; // 落ちながら縦にのびる
     } else {
       // ぽたん:葉が大きくしなって、しぶきが跳ねる
       if (!landed) {
